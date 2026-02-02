@@ -1,5 +1,6 @@
 using System.CommandLine;
 using KnotVM.Core.Interfaces;
+using Spectre.Console;
 
 namespace KnotVM.CLI.Commands;
 
@@ -24,29 +25,38 @@ public class ListCommand : Command
         
         if (installations.Length == 0)
         {
-            Console.WriteLine("Nessuna installazione trovata.");
-            Console.WriteLine("Usa 'knot install <versione>' per installare Node.js.");
+            AnsiConsole.MarkupLine("[yellow]Nessuna installazione trovata.[/]");
+            AnsiConsole.MarkupLine("[dim]Usa 'knot install <versione>' per installare Node.js.[/]");
             return;
         }
         
-        Console.WriteLine($"\nInstallazioni trovate ({installations.Length}):\n");
+        var table = new Table();
+        table.Border(TableBorder.SimpleHeavy);
+        table.AddColumn(new TableColumn("[bold]Alias[/]").LeftAligned());
+        table.AddColumn(new TableColumn("[bold]Versione Node.js[/]").LeftAligned());
+        table.AddColumn(new TableColumn("[bold]Attiva[/]").Centered());
         
         foreach (var installation in installations)
         {
-            var marker = installation.Use ? "*" : " ";
-            Console.WriteLine($"{marker} {installation.Alias,-20} (Node.js {installation.Version})");
+            var marker = installation.Use ? "[green]✓[/]" : "";
+            var alias = installation.Use ? $"[green]{installation.Alias}[/]" : installation.Alias;
+            var version = installation.Use ? $"[green]{installation.Version}[/]" : installation.Version;
+            
+            table.AddRow(alias, version, marker);
         }
         
-        Console.WriteLine();
+        AnsiConsole.Write(table);
         
         var activeInstallation = installations.FirstOrDefault(i => i.Use);
         if (activeInstallation != null)
         {
-            Console.WriteLine($"Versione attiva: {activeInstallation.Alias} (Node.js {activeInstallation.Version})");
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"[green]→[/] Versione attiva: [bold]{activeInstallation.Alias}[/] (Node.js {activeInstallation.Version})");
         }
         else
         {
-            Console.WriteLine("Nessuna versione attiva. Usa 'knot use <alias>' per attivare una versione.");
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("[dim]Nessuna versione attiva. Usa 'knot use <alias>' per attivare una versione.[/]");
         }
     }
 }

@@ -29,6 +29,9 @@ public class LocalInstallationsRepository : IInstallationsRepository
         }
 
         var installations = new List<Installation>();
+        
+        // Leggi l'alias attivo da settings.txt
+        var activeAlias = GetActiveAlias();
 
         // Enumera tutte le sottocartelle
         var directories = Directory.GetDirectories(_config.VersionsPath);
@@ -46,12 +49,34 @@ public class LocalInstallationsRepository : IInstallationsRepository
 
             if (version != null)
             {
-                // TODO: Implementare logica per determinare Use (leggere settings.txt)
-                installations.Add(new Installation(alias, version, Use: false));
+                var isActive = !string.IsNullOrEmpty(activeAlias) && alias.Equals(activeAlias, StringComparison.OrdinalIgnoreCase);
+                installations.Add(new Installation(alias, version, Use: isActive));
             }
         }
 
         return installations.ToArray();
+    }
+    
+    /// <summary>
+    /// Legge il nome dell'alias attivo dal file settings.txt.
+    /// </summary>
+    /// <returns>Il nome dell'alias attivo o null se non presente</returns>
+    private string? GetActiveAlias()
+    {
+        try
+        {
+            if (!File.Exists(_config.SettingsFile))
+            {
+                return null;
+            }
+            
+            var content = File.ReadAllText(_config.SettingsFile).Trim();
+            return string.IsNullOrWhiteSpace(content) ? null : content;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
