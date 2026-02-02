@@ -1,66 +1,24 @@
 namespace KnotVM.Core.Common;
 
 /// <summary>
-/// Configurazione singleton per path e impostazioni di KnotVM.
-/// Gestisce tutti i percorsi e le configurazioni globali dell'applicazione.
+/// Configurazione base per gestori versioni Node.js.
 /// </summary>
-public sealed class Configuration
+/// <param name="AppDataPath">Path root applicazione</param>
+/// <param name="VersionsPath">Path installazioni</param>
+/// <param name="BinPath">Path binari e proxy</param>
+/// <param name="CachePath">Path cache ZIP</param>
+/// <param name="SettingsFile">File installazione attiva</param>
+/// <param name="TemplatesPath">Path template proxy</param>
+/// <param name="LockFile">File lock concurrency</param>
+public record Configuration(
+    string AppDataPath,
+    string VersionsPath,
+    string BinPath,
+    string CachePath,
+    string SettingsFile,
+    string TemplatesPath,
+    string LockFile)
 {
-    private static readonly Lazy<Configuration> _instance = new(() => new Configuration());
-
-    /// <summary>
-    /// Ottiene l'istanza singleton di Configuration.
-    /// </summary>
-    public static Configuration Instance => _instance.Value;
-
-    private Configuration()
-    {
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        // TODO: Cambiare "node-local" in "knotvm" per il rilascio finale
-        AppDataPath = Path.Combine(appDataPath, "node-local");
-        VersionsPath = Path.Combine(AppDataPath, "versions");
-        BinPath = Path.Combine(AppDataPath, "bin");
-        CachePath = Path.Combine(AppDataPath, "cache");
-        SettingsFile = Path.Combine(AppDataPath, "settings.txt");
-        TemplatesPath = Path.Combine(BinPath, "templates");
-        LockFile = Path.Combine(AppDataPath, ".lock");
-    }
-
-    /// <summary>
-    /// Path root: %APPDATA%\knotvm
-    /// </summary>
-    public string AppDataPath { get; }
-
-    /// <summary>
-    /// Path installazioni: %APPDATA%\knotvm\versions
-    /// </summary>
-    public string VersionsPath { get; }
-
-    /// <summary>
-    /// Path binari e proxy: %APPDATA%\knotvm\bin
-    /// </summary>
-    public string BinPath { get; }
-
-    /// <summary>
-    /// Path cache ZIP scaricati: %APPDATA%\knotvm\cache
-    /// </summary>
-    public string CachePath { get; }
-
-    /// <summary>
-    /// File con nome installazione attiva: %APPDATA%\knotvm\settings.txt
-    /// </summary>
-    public string SettingsFile { get; }
-
-    /// <summary>
-    /// Path template proxy: %APPDATA%\knotvm\bin\templates
-    /// </summary>
-    public string TemplatesPath { get; }
-
-    /// <summary>
-    /// File lock per concurrency control: %APPDATA%\knotvm\.lock
-    /// </summary>
-    public string LockFile { get; }
-
     /// <summary>
     /// Inizializza le directory necessarie.
     /// </summary>
@@ -72,4 +30,53 @@ public sealed class Configuration
         Directory.CreateDirectory(CachePath);
         Directory.CreateDirectory(TemplatesPath);
     }
+
+    /// <summary>
+    /// Crea configurazione per KnotVM (futuro - non ancora usata).
+    /// </summary>
+    public static Configuration ForKnot()
+    {
+        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var rootPath = Path.Combine(appDataPath, "knotvm");
+        
+        return new Configuration(
+            AppDataPath: rootPath,
+            VersionsPath: Path.Combine(rootPath, "versions"),
+            BinPath: Path.Combine(rootPath, "bin"),
+            CachePath: Path.Combine(rootPath, "cache"),
+            SettingsFile: Path.Combine(rootPath, "settings.txt"),
+            TemplatesPath: Path.Combine(rootPath, "bin", "templates"),
+            LockFile: Path.Combine(rootPath, ".lock")
+        );
+    }
+
+    /// <summary>
+    /// Crea configurazione per node-local (compatibilità durante sviluppo).
+    /// </summary>
+    public static Configuration ForNodeLocal()
+    {
+        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var rootPath = Path.Combine(appDataPath, "node-local");
+        
+        return new Configuration(
+            AppDataPath: rootPath,
+            VersionsPath: Path.Combine(rootPath, "versions"),
+            BinPath: Path.Combine(rootPath, "bin"),
+            CachePath: Path.Combine(rootPath, "cache"),
+            SettingsFile: Path.Combine(rootPath, "settings.txt"),
+            TemplatesPath: Path.Combine(rootPath, "bin", "templates"),
+            LockFile: Path.Combine(rootPath, ".lock")
+        );
+    }
+
+    /// <summary>
+    /// Istanza singleton (attualmente usa node-local).
+    /// </summary>
+    private static readonly Lazy<Configuration> _instance = 
+        new(() => ForNodeLocal()); // TODO: Cambiare in ForKnot() per il rilascio
+
+    /// <summary>
+    /// Ottiene l'istanza singleton di Configuration.
+    /// </summary>
+    public static Configuration Instance => _instance.Value;
 }

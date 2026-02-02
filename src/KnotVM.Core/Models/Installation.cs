@@ -1,0 +1,10 @@
+namespace KnotVM.Core.Models;
+
+/// <summary>
+/// Rappresenta una singola installazione di Node.js.
+/// Corrisponde a una cartella in %APPDATA%\node-local\versions\
+/// </summary>
+/// <param name="Alias">Alias/nome dell'installazione (nome della cartella). Es: "production", "20.11.0"</param>
+/// <param name="Version">Versione semver di Node.js (es: "20.11.0")</param>
+/// <param name="Use">True se questa installazione è attualmente attiva (in settings.txt)</param>
+public record Installation(string Alias, string Version, bool Use);
