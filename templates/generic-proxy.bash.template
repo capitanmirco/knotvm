@@ -1,0 +1,41 @@
+#!/bin/bash
+# Generic bash proxy wrapper for node-local commands
+# This script is auto-generated and called by Git Bash and other Unix-like shells
+
+SETTINGS_FILE="{{SETTINGS_FILE}}"
+VERSIONS_PATH="{{VERSIONS_PATH}}"
+COMMAND_NAME="{{COMMAND_NAME}}"
+COMMAND_EXE="{{COMMAND_EXE}}"
+
+# Check if settings file exists
+if [ ! -f "$SETTINGS_FILE" ]; then
+    echo "Errore: Nessuna versione di Node.js selezionata." >&2
+    echo "Usa 'node-local use <version>' per selezionare una versione." >&2
+    exit 1
+fi
+
+# Read current version from settings file
+# Rimuovi sia CR che LF finali e spazi
+CURRENT_VERSION=$(cat "$SETTINGS_FILE" | tr -d '\r\n ' | sed 's/^[[:space:]]*//g' | sed 's/[[:space:]]*$//g')
+
+if [ -z "$CURRENT_VERSION" ]; then
+    echo "Errore: Nessuna versione di Node.js selezionata." >&2
+    echo "Usa 'node-local use <version>' per selezionare una versione." >&2
+    exit 1
+fi
+
+# Build path to the command
+COMMAND_PATH="$VERSIONS_PATH/$CURRENT_VERSION/$COMMAND_EXE"
+
+# Check if command exists
+if [ ! -f "$COMMAND_PATH" ]; then
+            echo "Errore: $COMMAND_NAME versione $CURRENT_VERSION non trovato." >&2
+            echo "Path: $COMMAND_PATH" >&2
+            echo "Usa 'node-local list' per vedere le versioni disponibili." >&2
+            exit 1
+fi
+
+# Execute the command with all arguments
+exec "$COMMAND_PATH" "$@"
+# Fallback if exec fails (should never reach here normally)
+exit $?

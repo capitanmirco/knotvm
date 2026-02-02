@@ -1,0 +1,92 @@
+@echo off
+setlocal enabledelayedexpansion
+
+REM Leggi la versione corrente dal file settings
+set "SETTINGS_FILE={{SETTINGS_FILE}}"
+set "VERSIONS_PATH={{VERSIONS_PATH}}"
+
+if not exist "%SETTINGS_FILE%" (
+    echo Errore: Nessuna versione di Node.js selezionata.
+    echo Usa 'node-local use ^<version^>' per selezionare una versione.
+    exit /b 1
+)
+
+REM Leggi la versione dal file
+set /p CURRENT_VERSION=<"%SETTINGS_FILE%"
+
+if "%CURRENT_VERSION%"=="" (
+    echo Errore: Nessuna versione di Node.js selezionata.
+    echo Usa 'node-local use ^<version^>' per selezionare una versione.
+    exit /b 1
+)
+
+REM Costruisci il path al comando del package manager
+set "PM_CMD=%VERSIONS_PATH%\%CURRENT_VERSION%\{{PM_NAME}}.cmd"
+
+if not exist "%PM_CMD%" (
+    echo Errore: {{PM_NAME}} versione %CURRENT_VERSION% non trovato.
+    echo Path: %PM_CMD%
+    echo Usa 'node-local list' per vedere le versioni disponibili.
+    exit /b 1
+)
+
+REM Detection universale per operazioni globali e installazione PM
+set "NEEDS_SYNC=false"
+set "NEEDS_PM_CONFIG=false"
+set "HAS_GLOBAL_FLAG=false"
+set "HAS_INSTALL_CMD=false"
+set "INSTALLING_PM=false"
+
+REM Scansiona tutti i parametri
+for %%i in (%*) do (
+    REM Rileva flag globali
+    if "%%i"=="-g" set "HAS_GLOBAL_FLAG=true"
+    if "%%i"=="--global" set "HAS_GLOBAL_FLAG=true"
+    if "%%i"=="global" set "HAS_GLOBAL_FLAG=true"
+    
+    REM Rileva comandi di installazione (SOLO install/add, non remove!)
+    if "%%i"=="install" set "HAS_INSTALL_CMD=true"
+    if "%%i"=="i" set "HAS_INSTALL_CMD=true"
+    if "%%i"=="add" set "HAS_INSTALL_CMD=true"
+    
+    REM Rileva comandi di rimozione (per escluderli dalla config)
+    if "%%i"=="remove" set "IS_REMOVE_CMD=true"
+    if "%%i"=="uninstall" set "IS_REMOVE_CMD=true"
+    if "%%i"=="rm" set "IS_REMOVE_CMD=true"
+    if "%%i"=="un" set "IS_REMOVE_CMD=true"
+)
+
+REM Se operazione globale, serve sync
+if "%HAS_GLOBAL_FLAG%"=="true" set "NEEDS_SYNC=true"
+
+REM Se stiamo INSTALLANDO un PM globalmente (HAS_INSTALL_CMD già esclude remove), serve configurazione
+if "%HAS_GLOBAL_FLAG%"=="true" (
+    if "%HAS_INSTALL_CMD%"=="true" (
+        if "%INSTALLING_PM%"=="true" (
+            set "NEEDS_PM_CONFIG=true"
+        )
+    )
+)
+
+REM Esegui il package manager con tutti i parametri
+call "%PM_CMD%" %*
+set "CMD_EXIT_CODE=%ERRORLEVEL%"
+
+REM Se il comando è riuscito, esegui azioni post-installazione
+if %CMD_EXIT_CODE% EQU 0 (
+    REM Se abbiamo installato un PM, configuralo
+    if "%NEEDS_PM_CONFIG%"=="true" (
+        echo.
+        echo Configurazione package manager per isolamento...
+        powershell -ExecutionPolicy Bypass -File "{{SCRIPT_PATH}}" use "%CURRENT_VERSION%"
+    )
+    
+    REM Se è un comando globale, sincronizza i comandi
+    if "%NEEDS_SYNC%"=="true" (
+        echo.
+        echo Sincronizzazione comandi globali...
+        powershell -ExecutionPolicy Bypass -File "{{SCRIPT_PATH}}" sync
+    )
+)
+
+exit /b %CMD_EXIT_CODE%

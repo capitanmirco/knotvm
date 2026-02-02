@@ -1,0 +1,93 @@
+#!/bin/bash
+# Package manager bash proxy wrapper for node-local npm/yarn/pnpm commands
+# This script is auto-generated and called by Git Bash and other Unix-like shells
+
+SETTINGS_FILE="{{SETTINGS_FILE}}"
+VERSIONS_PATH="{{VERSIONS_PATH}}"
+PM_NAME="{{PM_NAME}}"
+SCRIPT_PATH="{{SCRIPT_PATH}}"
+
+# Check if settings file exists
+if [ ! -f "$SETTINGS_FILE" ]; then
+    echo "Errore: Nessuna versione di Node.js selezionata." >&2
+    echo "Usa 'node-local use <version>' per selezionare una versione." >&2
+    exit 1
+fi
+
+# Read current version from settings file
+# Rimuovi sia CR che LF finali e spazi
+CURRENT_VERSION=$(cat "$SETTINGS_FILE" | tr -d '\r\n ' | sed 's/^[[:space:]]*//g' | sed 's/[[:space:]]*$//g')
+
+if [ -z "$CURRENT_VERSION" ]; then
+    echo "Errore: Nessuna versione di Node.js selezionata." >&2
+    echo "Usa 'node-local use <version>' per selezionare una versione." >&2
+    exit 1
+fi
+
+# Build path to the package manager
+PM_PATH="$VERSIONS_PATH/$CURRENT_VERSION/$PM_NAME.cmd"
+
+# Check if package manager exists
+if [ ! -f "$PM_PATH" ]; then
+    echo "Errore: $PM_NAME versione $CURRENT_VERSION non trovato." >&2
+    echo "Path: $PM_PATH" >&2
+    echo "Usa 'node-local list' per vedere le versioni disponibili." >&2
+    exit 1
+fi
+
+# Detection for global operations and package manager installation
+HAS_GLOBAL=false
+HAS_INSTALL_CMD=false
+INSTALLING_PM=false
+NEEDS_SYNC=false
+NEEDS_PM_CONFIG=false
+
+for arg in "$@"; do
+    # Detect global flags
+    if [[ "$arg" == "-g" ]] || [[ "$arg" == "--global" ]] || [[ "$arg" == "global" ]]; then
+        HAS_GLOBAL=true
+    fi
+    
+    # Detect install commands (ONLY install/add, not remove!)
+    if [[ "$arg" == "install" ]] || [[ "$arg" == "i" ]] || [[ "$arg" == "add" ]]; then
+        HAS_INSTALL_CMD=true
+    fi
+    
+    # Detect remove commands (to exclude from config)
+    if [[ "$arg" == "remove" ]] || [[ "$arg" == "uninstall" ]] || [[ "$arg" == "rm" ]] || [[ "$arg" == "un" ]]; then
+        IS_REMOVE_CMD=true
+    fi
+done
+
+# If global operation, need sync
+if [ $HAS_GLOBAL = true ]; then
+    NEEDS_SYNC=true
+fi
+
+# If INSTALLING a PM globally (HAS_INSTALL_CMD already excludes remove), need config
+if [ $HAS_GLOBAL = true ] && [ $HAS_INSTALL_CMD = true ] && [ $INSTALLING_PM = true ]; then
+    NEEDS_PM_CONFIG=true
+fi
+
+# Execute the command with all arguments
+"$PM_PATH" "$@"
+EXIT_CODE=$?
+
+# If command succeeded, execute post-installation actions
+if [ $EXIT_CODE -eq 0 ]; then
+    # If we installed a PM, configure it
+    if [ $NEEDS_PM_CONFIG = true ] && [ -f "$SCRIPT_PATH" ]; then
+        echo
+        echo "Configurazione package manager per isolamento..."
+        powershell -NoProfile -Command "& '$SCRIPT_PATH' use '$CURRENT_VERSION'" 2>/dev/null || true
+    fi
+    
+    # If it's a global command, sync commands
+    if [ $NEEDS_SYNC = true ] && [ -f "$SCRIPT_PATH" ]; then
+        echo
+        echo "Sincronizzazione comandi globali..."
+        powershell -NoProfile -Command "& '$SCRIPT_PATH' sync" 2>/dev/null || true
+    fi
+fi
+
+exit $EXIT_CODE

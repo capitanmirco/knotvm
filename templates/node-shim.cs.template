@@ -1,0 +1,64 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+
+namespace NodeLocalShim
+{
+    class Program
+    {
+        static int Main(string[] args)
+        {
+            try
+            {
+                string settingsFile = @"{{SETTINGS_FILE}}";
+                string versionsPath = @"{{VERSIONS_PATH}}";
+                string targetExe = "{{TARGET_EXE}}";
+                
+                if (!File.Exists(settingsFile))
+                {
+                    Console.Error.WriteLine("Errore: Nessuna versione di Node.js selezionata.");
+                    Console.Error.WriteLine("Usa 'node-local use <version>' per selezionare una versione.");
+                    return 1;
+                }
+                
+                string currentVersion = File.ReadAllText(settingsFile).Trim();
+                
+                if (string.IsNullOrWhiteSpace(currentVersion))
+                {
+                    Console.Error.WriteLine("Errore: Nessuna versione di Node.js selezionata.");
+                    Console.Error.WriteLine("Usa 'node-local use <version>' per selezionare una versione.");
+                    return 1;
+                }
+                
+                string commandPath = Path.Combine(versionsPath, currentVersion, targetExe);
+                
+                if (!File.Exists(commandPath))
+                {
+                    Console.Error.WriteLine("Errore: " + targetExe + " versione " + currentVersion + " non trovato.");
+                    Console.Error.WriteLine("Path: " + commandPath);
+                    Console.Error.WriteLine("Usa 'node-local list' per vedere le versioni disponibili.");
+                    return 1;
+                }
+                
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = commandPath,
+                    UseShellExecute = false,
+                    Arguments = string.Join(" ", args.Select(a => "\"" + a.Replace("\"", "\\\"") + "\""))
+                };
+                
+                var process = Process.Start(startInfo);
+                if (process == null) return 1;
+                
+                process.WaitForExit();
+                return process.ExitCode;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Errore: " + ex.Message);
+                return 1;
+            }
+        }
+    }
+}
