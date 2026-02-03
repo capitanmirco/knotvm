@@ -1,5 +1,6 @@
 using System.CommandLine;
 using KnotVM.Core.Interfaces;
+using KnotVM.Core.Models;
 using Spectre.Console;
 
 namespace KnotVM.CLI.Commands;
@@ -17,12 +18,12 @@ public class ListCommand : Command
         _repository = repository;
 
         // Opzione --path
-        _pathOption = new Option<bool>(name: "Path", aliases: ["--path", "-p"])
+        _pathOption = new Option<bool>(name: "with-path", aliases: ["--path", "-p"])
         {
             Description = "Mostra il percorso completo delle installazioni."
         };
         this.Add(_pathOption);
-        
+
         // Handler
         this.SetAction((p) => Execute(p.GetValue(_pathOption)));
     }
@@ -30,30 +31,45 @@ public class ListCommand : Command
     private void Execute(bool showPath)
     {
         var installations = _repository.GetAll();
-        
+
         if (installations.Length == 0)
         {
-            AnsiConsole.MarkupLine("[yellow]Nessuna installazione trovata.[/]");
-            AnsiConsole.MarkupLine("[dim]Usa 'knot install <versione>' per installare Node.js.[/]");
+            PrintNoInstallationsMessage();
             return;
         }
-        
+
+        var table = CreateTable(showPath);
+        AddRows(installations, table, showPath);
+
+        AnsiConsole.Write(table);
+
+        PrintUseMessage(installations);
+    }
+
+    private static Table CreateTable(bool showPath)
+    {
         var table = new Table();
         table.Border(TableBorder.SimpleHeavy);
         table.AddColumn(new TableColumn("[bold]Alias[/]").LeftAligned());
         table.AddColumn(new TableColumn("[bold]Versione Node.js[/]").LeftAligned());
         table.AddColumn(new TableColumn("[bold]Attiva[/]").Centered());
+
         if (showPath)
         {
             table.AddColumn(new TableColumn("[bold]Path[/]").LeftAligned());
         }
-        
+
+        return table;
+    }
+
+    private static void AddRows(Installation[] installations, Table table, bool showPath)
+    {
         foreach (var installation in installations)
         {
             var marker = installation.Use ? "[green]✓[/]" : "";
             var alias = installation.Use ? $"[green]{installation.Alias}[/]" : installation.Alias;
             var version = installation.Use ? $"[green]{installation.Version}[/]" : installation.Version;
-            
+
             if (showPath)
             {
                 var path = installation.Use ? $"[green]{installation.Path}[/]" : $"[dim]{installation.Path}[/]";
@@ -64,9 +80,16 @@ public class ListCommand : Command
                 table.AddRow(alias, version, marker);
             }
         }
-        
-        AnsiConsole.Write(table);
-        
+    }
+
+    private static void PrintNoInstallationsMessage()
+    {
+        AnsiConsole.MarkupLine("[yellow]Nessuna installazione trovata.[/]");
+        AnsiConsole.MarkupLine("[dim]Usa 'knot install <versione>' per installare Node.js.[/]");
+    }
+
+    private static void PrintUseMessage(Installation[] installations)
+    {
         var activeInstallation = installations.FirstOrDefault(i => i.Use);
         if (activeInstallation != null)
         {
