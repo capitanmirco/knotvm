@@ -50,7 +50,7 @@ public class LocalInstallationsRepository : IInstallationsRepository
             if (version != null)
             {
                 var isActive = !string.IsNullOrEmpty(activeAlias) && alias.Equals(activeAlias, StringComparison.OrdinalIgnoreCase);
-                installations.Add(new Installation(alias, version, Use: isActive));
+                installations.Add(new Installation(alias, version, dir, Use: isActive));
             }
         }
 
