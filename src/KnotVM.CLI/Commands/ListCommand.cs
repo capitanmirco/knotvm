@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Linq;
 using KnotVM.Core.Interfaces;
 using KnotVM.Core.Models;
 using Spectre.Console;
@@ -38,47 +39,40 @@ public class ListCommand : Command
             return;
         }
 
-        var table = CreateTable(showPath);
-        AddRows(installations, table, showPath);
+        var table = CreateListTable(showPath);
+        AddListRows(installations, table, showPath);
 
         AnsiConsole.Write(table);
 
-        PrintUseMessage(installations);
+        PrintActualUsedMessage(installations);
     }
 
-    private static Table CreateTable(bool showPath)
+    private static Table CreateListTable(bool showPath)
     {
-        var table = new Table();
-        table.Border(TableBorder.SimpleHeavy);
-        table.AddColumn(new TableColumn("[bold]Alias[/]").LeftAligned());
-        table.AddColumn(new TableColumn("[bold]Versione Node.js[/]").LeftAligned());
-        table.AddColumn(new TableColumn("[bold]Attiva[/]").Centered());
+        var table = Utils.Tables.CreateSpectreTable(["Alias", "Versione Node.js", "Attiva"]);
 
         if (showPath)
         {
-            table.AddColumn(new TableColumn("[bold]Path[/]").LeftAligned());
+            Utils.Tables.AddHeaderColumn(table, "Path");
         }
 
         return table;
     }
 
-    private static void AddRows(Installation[] installations, Table table, bool showPath)
+    private static void AddListRows(Installation[] installations, Table table, bool showPath)
     {
         foreach (var installation in installations)
         {
-            var marker = installation.Use ? "[green]✓[/]" : "";
-            var alias = installation.Use ? $"[green]{installation.Alias}[/]" : installation.Alias;
-            var version = installation.Use ? $"[green]{installation.Version}[/]" : installation.Version;
-
+            bool isActive = installation.Use;
+            string[] values = [installation.Alias, installation.Version, isActive ? "✓" : ""];
             if (showPath)
             {
-                var path = installation.Use ? $"[green]{installation.Path}[/]" : $"[dim]{installation.Path}[/]";
-                table.AddRow(alias, version, marker, path);
+                values = [.. values, installation.Path];
             }
-            else
-            {
-                table.AddRow(alias, version, marker);
-            }
+            Utils.Tables.AddContentRow(
+                    table,
+                    values, v => isActive ? $"[green]{v}[/]" : $"[dim]{v}[/]"
+                );
         }
     }
 
@@ -88,7 +82,7 @@ public class ListCommand : Command
         AnsiConsole.MarkupLine("[dim]Usa 'knot install <versione>' per installare Node.js.[/]");
     }
 
-    private static void PrintUseMessage(Installation[] installations)
+    private static void PrintActualUsedMessage(Installation[] installations)
     {
         var activeInstallation = installations.FirstOrDefault(i => i.Use);
         if (activeInstallation != null)
