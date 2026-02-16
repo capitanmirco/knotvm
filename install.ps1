@@ -33,7 +33,6 @@ Set-StrictMode -Version Latest
 
 $GITHUB_REPO = "mmennonna/knotvm"
 $CLI_NAME = "knot"
-$RELEASE_URL = "https://github.com/$GITHUB_REPO/releases/latest/download/knot-win-x64.exe"
 
 # ============================================================================
 # FUNZIONI HELPER
@@ -442,6 +441,27 @@ function Get-SystemArchitecture {
     return $arch.ToString().ToLower()
 }
 
+function Get-ReleaseRuntimeIdentifier {
+    $arch = Get-SystemArchitecture
+    switch ($arch) {
+        "x64" { return "win-x64" }
+        "arm64" { return "win-arm64" }
+        default {
+            Exit-WithError `
+                -Code "KNOT-OS-002" `
+                -Message "Architettura non supportata per publish: $arch" `
+                -Hint "Architetture supportate: x64, arm64" `
+                -ExitCode 11
+        }
+    }
+}
+
+function Get-ReleaseUrl {
+    $rid = Get-ReleaseRuntimeIdentifier
+    $archSuffix = $rid -replace "^win-", ""
+    return "https://github.com/$GITHUB_REPO/releases/latest/download/knot-win-$archSuffix.exe"
+}
+
 # ============================================================================
 # PREFLIGHT CHECKS
 # ============================================================================
@@ -575,34 +595,35 @@ function Install-FromSource {
             -ExitCode 99
     }
     
-    Write-ColorOutput "Compilazione progetto KnotVM.CLI..." -Level Info
+    $runtimeIdentifier = Get-ReleaseRuntimeIdentifier
+    Write-ColorOutput "Publish progetto KnotVM.CLI (RID: $runtimeIdentifier)..." -Level Info
     
     try {
         $projectPath = Join-Path $PSScriptRoot "src\KnotVM.CLI\KnotVM.CLI.csproj"
         
-        # Build
-        & dotnet build $projectPath -c Release --nologo -v quiet
+        # Publish self-contained per ottenere un eseguibile standalone.
+        & dotnet publish $projectPath -c Release -r $runtimeIdentifier --self-contained -p:PublishSingleFile=true --nologo -v quiet
         if ($LASTEXITCODE -ne 0) {
-            throw "Build fallita con exit code $LASTEXITCODE"
+            throw "Publish fallita con exit code $LASTEXITCODE"
         }
         
-        # Trova output
-        $outputPath = Join-Path $PSScriptRoot "src\KnotVM.CLI\bin\Release\net8.0\knot.exe"
+        # Trova output publish
+        $outputPath = Join-Path $PSScriptRoot "src\KnotVM.CLI\bin\Release\net8.0\$runtimeIdentifier\publish\knot.exe"
         if (-not (Test-Path $outputPath)) {
             throw "Output binario non trovato: $outputPath"
         }
         
         # Copia
         Copy-Item -Path $outputPath -Destination $TargetPath -Force
-        Write-ColorOutput "✓ Binario compilato e copiato in $TargetPath" -Level Success
+        Write-ColorOutput "✓ Binario pubblicato e copiato in $TargetPath" -Level Success
         
         return $true
     }
     catch {
         Exit-WithError `
             -Code "KNOT-GEN-001" `
-            -Message "Compilazione fallita: $($_.Exception.Message)" `
-            -Hint "Verifica errori build con: dotnet build src\KnotVM.CLI\KnotVM.CLI.csproj -c Release" `
+            -Message "Publish fallita: $($_.Exception.Message)" `
+            -Hint "Verifica errori publish con: dotnet publish src\KnotVM.CLI\KnotVM.CLI.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true" `
             -ExitCode 99
     }
 }
@@ -611,13 +632,14 @@ function Install-FromRelease {
     param([string]$TargetPath)
     
     $tempFile = Join-Path $env:TEMP "$CLI_NAME-latest.exe"
+    $releaseUrl = Get-ReleaseUrl
     
     try {
-        Write-ColorOutput "Download da $RELEASE_URL..." -Level Info
+        Write-ColorOutput "Download da $releaseUrl..." -Level Info
         
         # Download con progress
         $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $RELEASE_URL -OutFile $tempFile -UseBasicParsing
+        Invoke-WebRequest -Uri $releaseUrl -OutFile $tempFile -UseBasicParsing
         $ProgressPreference = 'Continue'
         
         if (-not (Test-Path $tempFile)) {
