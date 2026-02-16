@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using KnotVM.Core.Common;
+using KnotVM.Core.Enums;
 using KnotVM.Core.Interfaces;
 using KnotVM.Core.Models;
 
@@ -11,10 +11,17 @@ namespace KnotVM.Infrastructure.Repositories;
 public class LocalInstallationsRepository : IInstallationsRepository
 {
     private readonly Configuration _config;
+    private readonly bool _isWindows;
+    private readonly IProcessRunner _processRunner;
 
-    public LocalInstallationsRepository(Configuration config)
+    public LocalInstallationsRepository(
+        Configuration config,
+        IPlatformService platformService,
+        IProcessRunner processRunner)
     {
         _config = config;
+        _isWindows = platformService.GetCurrentOs() == HostOs.Windows;
+        _processRunner = processRunner;
     }
 
     /// <summary>
@@ -84,7 +91,7 @@ public class LocalInstallationsRepository : IInstallationsRepository
     /// </summary>
     private bool IsValidInstallation(string directoryPath)
     {
-        var nodeExePath = Path.Combine(directoryPath, "node.exe");
+        var nodeExePath = GetNodeExecutablePath(directoryPath);
         return File.Exists(nodeExePath);
     }
 
@@ -96,40 +103,106 @@ public class LocalInstallationsRepository : IInstallationsRepository
     {
         try
         {
-            var nodeExePath = Path.Combine(directoryPath, "node.exe");
-            
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = nodeExePath,
-                Arguments = "-v",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start(startInfo);
-            if (process == null)
-            {
-                return null;
-            }
-
-            process.WaitForExit();
-            
-            if (process.ExitCode != 0)
-            {
-                return null;
-            }
-
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            
-            // Rimuovi il prefisso 'v' se presente (es: v20.11.0 -> 20.11.0)
-            return output.StartsWith('v') ? output.Substring(1) : output;
+            var nodeExePath = GetNodeExecutablePath(directoryPath);
+            return _processRunner.GetNodeVersion(nodeExePath);
         }
         catch
         {
             // Se qualcosa va storto, ritorna null
             return null;
         }
+    }
+
+    private string GetNodeExecutablePath(string directoryPath)
+    {
+        // Windows: directoryPath\node.exe
+        // Linux/macOS: directoryPath/bin/node
+        return _isWindows
+            ? Path.Combine(directoryPath, "node.exe")
+            : Path.Combine(directoryPath, "bin", "node");
+    }
+
+    public void Add(Installation installation)
+    {
+        // No-op: il filesystem è già stato modificato da InstallationService
+        // Il repository legge direttamente dal disco al prossimo GetAll()
+    }
+
+    public void Update(Installation installation)
+    {
+        // No-op: il repository legge sempre lo stato dal filesystem
+    }
+
+    public bool Remove(string alias)
+    {
+        // No-op: la rimozione fisica è gestita da InstallationService
+        return true;
+    }
+
+    public void SetActiveInstallation(string alias)
+    {
+        // Scrivi alias in settings.txt
+        try
+        {
+            File.WriteAllText(_config.SettingsFile, alias);
+        }
+        catch
+        {
+            // Ignora errori
+        }
+    }
+
+    public Installation? GetByAlias(string alias)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            return null;
+        }
+
+        var installationPath = ResolveInstallationPath(alias);
+        if (installationPath == null || !IsValidInstallation(installationPath))
+        {
+            return null;
+        }
+
+        var version = GetNodeVersion(installationPath);
+        if (version == null)
+        {
+            return null;
+        }
+
+        var resolvedAlias = Path.GetFileName(installationPath);
+        var activeAlias = GetActiveAlias();
+        var isActive = !string.IsNullOrEmpty(activeAlias) &&
+                       resolvedAlias.Equals(activeAlias, StringComparison.OrdinalIgnoreCase);
+
+        return new Installation(resolvedAlias, version, installationPath, Use: isActive);
+    }
+
+    private string? ResolveInstallationPath(string alias)
+    {
+        if (!Directory.Exists(_config.VersionsPath))
+        {
+            return null;
+        }
+
+        // Fast path: alias with exact casing.
+        var directPath = Path.Combine(_config.VersionsPath, alias);
+        if (Directory.Exists(directPath))
+        {
+            return directPath;
+        }
+
+        // Fallback case-insensitive lookup.
+        foreach (var directory in Directory.GetDirectories(_config.VersionsPath))
+        {
+            var dirAlias = Path.GetFileName(directory);
+            if (dirAlias.Equals(alias, StringComparison.OrdinalIgnoreCase))
+            {
+                return directory;
+            }
+        }
+
+        return null;
     }
 }

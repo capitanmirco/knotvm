@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Linq;
+using KnotVM.CLI.Utils;
 using KnotVM.Core.Interfaces;
 using KnotVM.Core.Models;
 using Spectre.Console;
@@ -29,22 +30,27 @@ public class ListCommand : Command
         this.SetAction((p) => Execute(p.GetValue(_pathOption)));
     }
 
-    private void Execute(bool showPath)
+    private int Execute(bool showPath)
     {
-        var installations = _repository.GetAll();
-
-        if (installations.Length == 0)
+        return CommandExecutor.ExecuteWithExitCode(() =>
         {
-            PrintNoInstallationsMessage();
-            return;
-        }
+            var installations = _repository.GetAll();
 
-        var table = CreateListTable(showPath);
-        AddListRows(installations, table, showPath);
+            if (installations.Length == 0)
+            {
+                PrintNoInstallationsMessage();
+                return 0;
+            }
 
-        AnsiConsole.Write(table);
+            var table = CreateListTable(showPath);
+            AddListRows(installations, table, showPath);
 
-        PrintActualUsedMessage(installations);
+            AnsiConsole.Write(table);
+
+            PrintActualUsedMessage(installations);
+
+            return 0;
+        });
     }
 
     private static Table CreateListTable(bool showPath)
