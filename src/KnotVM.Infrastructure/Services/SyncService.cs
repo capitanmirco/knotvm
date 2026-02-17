@@ -64,12 +64,15 @@ public class SyncService : ISyncService
 
             // Genera proxy per package manager
             GeneratePackageManagerProxies(currentInstallation.Path);
+            
+            // Genera wrapper senza prefisso per comodità
+            GenerateUnprefixedWrappers();
         }
         catch (Exception ex) when (ex is not KnotVMException)
         {
             throw new KnotVMException(
                 KnotErrorCode.SyncFailed,
-                "Errore durante sincronizzazione proxy",
+                $"Errore durante sincronizzazione proxy: {ex.Message} | StackTrace: {ex.StackTrace}",
                 ex);
         }
     }
@@ -157,6 +160,58 @@ public class SyncService : ISyncService
 
         scriptPath = string.Empty;
         return false;
+    }
+    
+    private void GenerateUnprefixedWrappers()
+    {
+        // Crea wrapper senza prefisso per comodità utente (node, npm, npx)
+        // Questi wrapper semplicemente chiamano i proxy isolati nlocal-*
+        
+        var binPath = _paths.GetBinPath();
+        var commands = new[] { "node", "npm", "npx", "corepack" };
+        
+        if (_platform.GetCurrentOs() == HostOs.Windows)
+        {
+            foreach (var cmd in commands)
+            {
+                var wrapperPath = Path.Combine(binPath, $"{cmd}.cmd");
+                var isolatedProxy = ProxyNaming.BuildIsolatedProxyName(cmd);
+                var wrapperContent = $"@echo off\r\n{isolatedProxy}.cmd %*\r\n";
+                
+                try
+                {
+                    File.WriteAllText(wrapperPath, wrapperContent, System.Text.Encoding.ASCII);
+                }
+                catch
+                {
+                    // Ignora errori su wrapper opzionali
+                }
+            }
+        }
+        else
+        {
+            foreach (var cmd in commands)
+            {
+                var wrapperPath = Path.Combine(binPath, cmd);
+                var isolatedProxy = ProxyNaming.BuildIsolatedProxyName(cmd);
+                var wrapperContent = $"#!/bin/bash\nexec {isolatedProxy} \"$@\"\n";
+                
+                try
+                {
+                    File.WriteAllText(wrapperPath, wrapperContent, System.Text.Encoding.UTF8);
+                    // Rendi eseguibile su Unix
+                    if (_platform.GetCurrentOs() != HostOs.Windows)
+                    {
+                        var chmod = System.Diagnostics.Process.Start("chmod", $"+x \"{wrapperPath}\"");
+                        chmod?.WaitForExit();
+                    }
+                }
+                catch
+                {
+                    // Ignora errori su wrapper opzionali
+                }
+            }
+        }
     }
 
     #endregion

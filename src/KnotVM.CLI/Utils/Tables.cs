@@ -12,14 +12,14 @@ public static class Tables
         table.Border(TableBorder.SimpleHeavy);
         foreach (var header in headerStringValues)
         {
-            table.AddColumn(new TableColumn($"[bold]{header}[/]").LeftAligned());
+            table.AddColumn(new TableColumn($"[bold]{header}[/]").Centered());
         }
         return table;
     }
 
     public static Table AddHeaderColumn(this Table table, string headerString)
     {
-        table.AddColumn(new TableColumn($"[bold]{headerString}[/]").LeftAligned());
+        table.AddColumn(new TableColumn($"[bold]{headerString}[/]").Centered());
         return table;
     }
 

@@ -183,14 +183,28 @@ public class ProxyGeneratorService : IProxyGeneratorService
             // Rimuovi tutti i .cmd nella bin directory
             foreach (var cmdFile in Directory.GetFiles(binDir, "*.cmd"))
             {
-                File.Delete(cmdFile);
+                try
+                {
+                    File.Delete(cmdFile);
+                }
+                catch
+                {
+                    // Ignora errori su singoli file (potrebbero essere locked)
+                }
             }
             
-            // Rimuovi anche eventuali shim
+            // Rimuovi anche eventuali shim (ignora errori se locked)
             var shimPath = Path.Combine(binDir, "node.exe");
             if (File.Exists(shimPath))
             {
-                File.Delete(shimPath);
+                try
+                {
+                    File.Delete(shimPath);
+                }
+                catch
+                {
+                    // File locked o protetto - ignora
+                }
             }
         }
         else
@@ -200,7 +214,14 @@ public class ProxyGeneratorService : IProxyGeneratorService
             {
                 if (!Path.HasExtension(file))
                 {
-                    File.Delete(file);
+                    try
+                    {
+                        File.Delete(file);
+                    }  
+                    catch
+                    {
+                        // Ignora errori su singoli file
+                    }
                 }
             }
         }

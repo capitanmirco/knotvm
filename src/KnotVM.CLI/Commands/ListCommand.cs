@@ -70,7 +70,7 @@ public class ListCommand : Command
         foreach (var installation in installations)
         {
             bool isActive = installation.Use;
-            string[] values = [installation.Alias, installation.Version, isActive ? "✓" : ""];
+            string[] values = [installation.Alias, installation.Version, isActive ? "Sì" : "No"];
             if (showPath)
             {
                 values = [.. values, installation.Path];
@@ -94,7 +94,7 @@ public class ListCommand : Command
         if (activeInstallation != null)
         {
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine($"[green]→[/] Versione attiva: [bold]{activeInstallation.Alias}[/] (Node.js {activeInstallation.Version})");
+            AnsiConsole.MarkupLine($"[green]*[/] Versione attiva: [bold]{activeInstallation.Alias}[/] (Node.js {activeInstallation.Version})");
         }
         else
         {

@@ -534,6 +534,21 @@ function Initialize-KnotHome {
         }
     }
     
+    # Copia template se disponibili
+    $repoTemplatesDir = Join-Path $PSScriptRoot "templates"
+    if (Test-Path $repoTemplatesDir) {
+        $targetTemplatesDir = Join-Path $KnotHome "templates"
+        try {
+            Get-ChildItem -Path $repoTemplatesDir -Filter "*.template" | ForEach-Object {
+                Copy-Item -Path $_.FullName -Destination $targetTemplatesDir -Force
+            }
+            Write-ColorOutput "✓ Template copiati" -Level Info
+        }
+        catch {
+            Write-ColorOutput "⚠ Impossibile copiare template: $_" -Level Warning
+        }
+    }
+    
     Write-ColorOutput "✓ Struttura KNOT_HOME verificata" -Level Success
 }
 
