@@ -66,14 +66,6 @@ public class NodeArtifactResolver : INodeArtifactResolver
         var targetOs = os ?? _platform.GetCurrentOs();
         var targetArch = arch ?? _platform.GetCurrentArch();
 
-        var osIdentifier = targetOs switch
-        {
-            HostOs.Windows => "win",
-            HostOs.Linux => "linux",
-            HostOs.MacOS => "darwin",
-            _ => throw new PlatformNotSupportedException($"OS {targetOs} non supportato")
-        };
-
         var archIdentifier = targetArch switch
         {
             HostArch.X64 => "x64",
@@ -82,11 +74,19 @@ public class NodeArtifactResolver : INodeArtifactResolver
             _ => throw new PlatformNotSupportedException($"Arch {targetArch} non supportato")
         };
 
-        var platformString = $"{osIdentifier}-{archIdentifier}";
+        // Node index.json usa naming "osx-*" per macOS, mentre gli artifact si chiamano "darwin-*".
+        // Accettiamo entrambi per compatibilita` e per evitare falsi negativi su macOS.
+        var osPrefixes = targetOs switch
+        {
+            HostOs.Windows => new[] { "win" },
+            HostOs.Linux => new[] { "linux" },
+            HostOs.MacOS => new[] { "osx", "darwin" },
+            _ => throw new PlatformNotSupportedException($"OS {targetOs} non supportato")
+        };
 
-        return remoteVersion.Files.Any(f => 
-            f.StartsWith(platformString, StringComparison.OrdinalIgnoreCase)
-        );
+        return remoteVersion.Files.Any(file =>
+            osPrefixes.Any(prefix =>
+                file.StartsWith($"{prefix}-{archIdentifier}", StringComparison.OrdinalIgnoreCase)));
     }
 
     public string GetArtifactExtension(HostOs? os = null)

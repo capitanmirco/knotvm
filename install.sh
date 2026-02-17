@@ -95,7 +95,18 @@ get_os_type() {
 get_arch() {
     local arch
     arch=$(uname -m)
-    
+
+    # Su macOS rileva Apple Silicon anche se la shell e` in emulazione Rosetta.
+    # In quel caso uname -m puo` restituire x86_64 anche su hardware arm64.
+    if [ "$(uname -s)" = "Darwin" ] && command -v sysctl &>/dev/null; then
+        local is_apple_silicon
+        is_apple_silicon=$(sysctl -in hw.optional.arm64 2>/dev/null || echo 0)
+        if [ "$is_apple_silicon" = "1" ]; then
+            echo "arm64"
+            return
+        fi
+    fi
+
     case "$arch" in
         x86_64)
             echo "x64"
@@ -206,6 +217,21 @@ initialize_knot_home() {
             log_info "✓ Creata directory: $dir"
         fi
     done
+
+    # Copia template se disponibili nella root repository.
+    local script_dir repo_templates_dir target_templates_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    repo_templates_dir="$script_dir/templates"
+    target_templates_dir="$knot_home/templates"
+
+    if [ -d "$repo_templates_dir" ]; then
+        # shellcheck disable=SC2035
+        if cp "$repo_templates_dir"/*.template "$target_templates_dir"/ 2>/dev/null; then
+            log_info "✓ Template copiati"
+        else
+            log_warn "Impossibile copiare template da $repo_templates_dir"
+        fi
+    fi
     
     log_success "✓ Struttura KNOT_HOME verificata"
 }

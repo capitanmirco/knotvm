@@ -71,6 +71,8 @@ public class InstallationService : IInstallationService
 
         // 2. Determina alias (usa version se non specificato)
         var finalAlias = alias ?? remoteVersion.Version;
+        var hostOs = _platform.GetCurrentOs();
+        var hostArch = _platform.GetCurrentArch();
 
         // 3. Verifica se già installato
         if (!forceReinstall && IsInstalled(finalAlias))
@@ -85,15 +87,15 @@ public class InstallationService : IInstallationService
             );
         }
 
-        // 4. Verifica artifact disponibile per OS/arch corrente
-        if (!_artifactResolver.IsArtifactAvailable(remoteVersion))
+        // 4. Risolvi artifact target (auto-fallback Apple Silicon -> x64 per versioni legacy)
+        if (!TryResolveArtifactPlatform(remoteVersion, hostOs, hostArch, out var artifactOs, out var artifactArch))
         {
             return new InstallationPrepareResult(
                 Success: false,
                 Alias: finalAlias,
                 Version: remoteVersion.Version,
                 InstallationPath: string.Empty,
-                ErrorMessage: $"Artifact non disponibile per {_platform.GetCurrentOs()}/{_platform.GetCurrentArch()}",
+                ErrorMessage: $"Artifact non disponibile per {hostOs}/{hostArch}",
                 ErrorCode: KnotErrorCode.ArtifactNotAvailable.ToString()
             );
         }
@@ -102,9 +104,9 @@ public class InstallationService : IInstallationService
         await PreflightCheckAsync();
 
         // 6. Download artifact
-        var downloadUrl = _artifactResolver.GetArtifactDownloadUrl(remoteVersion.Version);
+        var downloadUrl = _artifactResolver.GetArtifactDownloadUrl(remoteVersion.Version, artifactOs, artifactArch);
         var checksumUrl = _artifactResolver.GetChecksumFileUrl(remoteVersion.Version);
-        var artifactFileName = _artifactResolver.GetArtifactFileName(remoteVersion.Version);
+        var artifactFileName = _artifactResolver.GetArtifactFileName(remoteVersion.Version, artifactOs, artifactArch);
         
         var downloadPath = Path.Combine(_pathService.GetCachePath(), artifactFileName);
 
@@ -425,5 +427,36 @@ public class InstallationService : IInstallationService
         var installPath = GetInstallationPath(alias);
         _fileSystem.DeleteDirectoryIfExists(installPath);
         _installationsRepo.Remove(alias);
+    }
+
+    private bool TryResolveArtifactPlatform(
+        RemoteVersion remoteVersion,
+        HostOs hostOs,
+        HostArch hostArch,
+        out HostOs artifactOs,
+        out HostArch artifactArch)
+    {
+        // Best case: artifact nativo disponibile per piattaforma corrente.
+        if (_artifactResolver.IsArtifactAvailable(remoteVersion, hostOs, hostArch))
+        {
+            artifactOs = hostOs;
+            artifactArch = hostArch;
+            return true;
+        }
+
+        // Fallback automatico per macOS Apple Silicon:
+        // molte versioni storiche di Node.js non hanno artifact arm64, ma hanno x64.
+        if (hostOs == HostOs.MacOS &&
+            hostArch == HostArch.Arm64 &&
+            _artifactResolver.IsArtifactAvailable(remoteVersion, HostOs.MacOS, HostArch.X64))
+        {
+            artifactOs = HostOs.MacOS;
+            artifactArch = HostArch.X64;
+            return true;
+        }
+
+        artifactOs = hostOs;
+        artifactArch = hostArch;
+        return false;
     }
 }

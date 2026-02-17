@@ -20,6 +20,11 @@ public class ProxyGeneratorService : IProxyGeneratorService
         "node-shim.cs.template"
     ];
 
+    private static readonly HashSet<string> UnixWrapperCommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "node", "npm", "npx", "corepack"
+    };
+
     private readonly IPlatformService _platform;
     private readonly IPathService _paths;
     private readonly IFileSystemService _fileSystem;
@@ -200,19 +205,22 @@ public class ProxyGeneratorService : IProxyGeneratorService
         }
         else
         {
-            // Rimuovi tutti gli script senza estensione (proxy Unix)
+            // Rimuovi solo proxy/wrapper gestiti da KnotVM.
+            // Non toccare binari estranei presenti nella cartella (es: knot).
             foreach (var file in Directory.GetFiles(binDir))
             {
-                if (!Path.HasExtension(file))
+                if (!IsManagedUnixProxyOrWrapper(file))
                 {
-                    try
-                    {
-                        File.Delete(file);
-                    }  
-                    catch
-                    {
-                        // Ignora errori su singoli file
-                    }
+                    continue;
+                }
+
+                try
+                {
+                    File.Delete(file);
+                }
+                catch
+                {
+                    // Ignora errori su singoli file
                 }
             }
         }
@@ -327,6 +335,14 @@ public class ProxyGeneratorService : IProxyGeneratorService
     private static string EscapeCSharpString(string str)
     {
         return str.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    }
+
+    private static bool IsManagedUnixProxyOrWrapper(string filePath)
+    {
+        var fileName = Path.GetFileName(filePath);
+
+        return fileName.StartsWith(ProxyNaming.IsolatedPrefix, StringComparison.OrdinalIgnoreCase)
+               || UnixWrapperCommands.Contains(fileName);
     }
 
     private void EnsureTemplateDirectoryExists()

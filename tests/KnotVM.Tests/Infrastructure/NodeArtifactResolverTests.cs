@@ -50,6 +50,38 @@ public class NodeArtifactResolverTests
         available.Should().BeTrue();
     }
 
+    [Fact]
+    public void IsArtifactAvailable_MacOs_ShouldMatchNodeIndexOsxNaming()
+    {
+        var platformMock = CreatePlatformMock(HostOs.MacOS, HostArch.Arm64);
+        var resolver = new NodeArtifactResolver(platformMock.Object);
+        var remote = new RemoteVersion(
+            Version: "24.13.1",
+            Lts: "Krypton",
+            Date: "2026-02-09",
+            Files: ["linux-x64", "osx-arm64-tar", "win-x64-zip"]);
+
+        var available = resolver.IsArtifactAvailable(remote);
+
+        available.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsArtifactAvailable_MacOs_ShouldAlsoAcceptDarwinNamingForCompatibility()
+    {
+        var platformMock = CreatePlatformMock(HostOs.MacOS, HostArch.X64);
+        var resolver = new NodeArtifactResolver(platformMock.Object);
+        var remote = new RemoteVersion(
+            Version: "22.22.0",
+            Lts: "Jod",
+            Date: "2026-02-09",
+            Files: ["darwin-x64", "linux-arm64"]);
+
+        var available = resolver.IsArtifactAvailable(remote);
+
+        available.Should().BeTrue();
+    }
+
     private static Mock<IPlatformService> CreatePlatformMock(HostOs os, HostArch arch)
     {
         var mock = new Mock<IPlatformService>();
@@ -58,4 +90,3 @@ public class NodeArtifactResolverTests
         return mock;
     }
 }
-

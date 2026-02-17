@@ -64,6 +64,39 @@ public class ProxyGeneratorTemplateResolutionTests : IDisposable
         File.Exists(proxyFile).Should().BeTrue();
     }
 
+    [Fact]
+    public void RemoveAllProxies_Unix_ShouldKeepKnotBinaryAndNonManagedFiles()
+    {
+        var platformServiceMock = new Mock<IPlatformService>();
+        platformServiceMock.Setup(x => x.GetCurrentOs()).Returns(HostOs.MacOS);
+
+        var pathServiceMock = new Mock<IPathService>();
+        pathServiceMock.Setup(x => x.GetBinPath()).Returns(_tempBinPath);
+        pathServiceMock.Setup(x => x.GetTemplatesPath()).Returns(_emptyTemplatesPath);
+        pathServiceMock.Setup(x => x.GetSettingsFilePath()).Returns(Path.Combine(_tempRoot, "settings.txt"));
+        pathServiceMock.Setup(x => x.GetVersionsPath()).Returns(Path.Combine(_tempRoot, "versions"));
+
+        var fileSystem = new FileSystemService(platformServiceMock.Object);
+        var service = new ProxyGeneratorService(platformServiceMock.Object, pathServiceMock.Object, fileSystem);
+
+        var knotBinary = Path.Combine(_tempBinPath, "knot");
+        var nodeWrapper = Path.Combine(_tempBinPath, "node");
+        var isolatedProxy = Path.Combine(_tempBinPath, "nlocal-node");
+        var userTool = Path.Combine(_tempBinPath, "custom-tool");
+
+        File.WriteAllText(knotBinary, "knot-binary");
+        File.WriteAllText(nodeWrapper, "node-wrapper");
+        File.WriteAllText(isolatedProxy, "isolated-proxy");
+        File.WriteAllText(userTool, "user-tool");
+
+        service.RemoveAllProxies();
+
+        File.Exists(knotBinary).Should().BeTrue();
+        File.Exists(userTool).Should().BeTrue();
+        File.Exists(nodeWrapper).Should().BeFalse();
+        File.Exists(isolatedProxy).Should().BeFalse();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

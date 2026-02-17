@@ -91,7 +91,18 @@ get_os_type() {
 get_arch() {
     local arch
     arch=$(uname -m)
-    
+
+    # Su macOS rileva Apple Silicon anche se la shell e` in emulazione Rosetta.
+    # In quel caso uname -m puo` restituire x86_64 anche su hardware arm64.
+    if [ "$(uname -s)" = "Darwin" ] && command -v sysctl &>/dev/null; then
+        local is_apple_silicon
+        is_apple_silicon=$(sysctl -in hw.optional.arm64 2>/dev/null || echo 0)
+        if [ "$is_apple_silicon" = "1" ]; then
+            echo "arm64"
+            return
+        fi
+    fi
+
     case "$arch" in
         x86_64)
             echo "x64"
