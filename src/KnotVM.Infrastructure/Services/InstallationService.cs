@@ -205,7 +205,18 @@ public class InstallationService : IInstallationService
         }
         catch (Exception ex)
         {
-            _fileSystem.DeleteDirectoryIfExists(tempExtractPath);
+            // Cleanup sicuro senza mascherare l'errore originale
+            try
+            {
+                _fileSystem.DeleteDirectoryIfExists(tempExtractPath);
+                // Se Directory.Move ha creato parzialmente la destinazione, ripuliamola
+                _fileSystem.DeleteDirectoryIfExists(finalInstallPath);
+            }
+            catch
+            {
+                // Ignora errori di cleanup - l'errore importante è quello originale
+            }
+            
             return new InstallationPrepareResult(
                 Success: false,
                 Alias: finalAlias,
@@ -217,8 +228,15 @@ public class InstallationService : IInstallationService
         }
         finally
         {
-            // Cleanup temp extract
-            _fileSystem.DeleteDirectoryIfExists(tempExtractPath);
+            // Cleanup temp extract (sicuro - ignora errori)
+            try
+            {
+                _fileSystem.DeleteDirectoryIfExists(tempExtractPath);
+            }
+            catch
+            {
+                // Ignora errori di cleanup in finally
+            }
         }
 
         // 10. Verifica installazione

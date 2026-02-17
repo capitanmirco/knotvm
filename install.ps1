@@ -578,21 +578,17 @@ function Install-FromSource {
     # Verifica che siamo nella directory corretta
     $solutionFile = Join-Path $PSScriptRoot "KnotVM.sln"
     if (-not (Test-Path $solutionFile)) {
-        Exit-WithError `
-            -Code "KNOT-GEN-001" `
-            -Message "KnotVM.sln non trovato. Esegui install.ps1 dalla root del repository o usa modalità release." `
-            -Hint "cd nella directory root del progetto oppure ometti -Dev per scaricare release" `
-            -ExitCode 99
+        Write-ColorOutput "KnotVM.sln non trovato. Esegui install.ps1 dalla root del repository o usa modalità release." -Level Error
+        Write-ColorOutput "Hint: cd nella directory root del progetto oppure ometti -Dev per scaricare release" -Level Warning
+        return $false
     }
     
     # Verifica dotnet CLI
     $dotnetPath = Get-Command dotnet -ErrorAction SilentlyContinue
     if (-not $dotnetPath) {
-        Exit-WithError `
-            -Code "KNOT-GEN-001" `
-            -Message "dotnet CLI non trovato nel PATH" `
-            -Hint "Installa .NET 8.0 SDK da https://dot.net" `
-            -ExitCode 99
+        Write-ColorOutput "dotnet CLI non trovato nel PATH" -Level Error
+        Write-ColorOutput "Hint: Installa .NET 8.0 SDK da https://dot.net" -Level Warning
+        return $false
     }
     
     $runtimeIdentifier = Get-ReleaseRuntimeIdentifier
@@ -620,11 +616,9 @@ function Install-FromSource {
         return $true
     }
     catch {
-        Exit-WithError `
-            -Code "KNOT-GEN-001" `
-            -Message "Publish fallita: $($_.Exception.Message)" `
-            -Hint "Verifica errori publish con: dotnet publish src\KnotVM.CLI\KnotVM.CLI.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true" `
-            -ExitCode 99
+        Write-ColorOutput "Publish fallita: $($_.Exception.Message)" -Level Error
+        Write-ColorOutput "Hint: Verifica errori publish con: dotnet publish src\KnotVM.CLI\KnotVM.CLI.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true" -Level Warning
+        return $false
     }
 }
 
@@ -662,11 +656,9 @@ function Install-FromRelease {
     catch {
         Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
         
-        Exit-WithError `
-            -Code "KNOT-DL-001" `
-            -Message "Download release fallito: $($_.Exception.Message)" `
-            -Hint "Verifica connessione internet o usa modalità -Dev per compilare da sorgenti" `
-            -ExitCode 32
+        Write-ColorOutput "Download release fallito: $($_.Exception.Message)" -Level Error
+        Write-ColorOutput "Hint: Verifica connessione internet o usa modalità -Dev per compilare da sorgenti" -Level Warning
+        return $false
     }
 }
 
@@ -678,11 +670,9 @@ function Test-Installation {
     $knotExe = Join-Path $BinPath "$CLI_NAME.exe"
     
     if (-not (Test-Path $knotExe)) {
-        Exit-WithError `
-            -Code "KNOT-GEN-001" `
-            -Message "Binario knot.exe non trovato dopo installazione" `
-            -Hint "Ripeti installazione o contatta supporto" `
-            -ExitCode 99
+        Write-ColorOutput "Binario knot.exe non trovato dopo installazione" -Level Error
+        Write-ColorOutput "Hint: Ripeti installazione o contatta supporto" -Level Warning
+        return $false
     }
     
     try {
@@ -698,11 +688,9 @@ function Test-Installation {
         return $true
     }
     catch {
-        Exit-WithError `
-            -Code "KNOT-GEN-001" `
-            -Message "Binario installato ma non eseguibile: $($_.Exception.Message)" `
-            -Hint "Verifica antivirus o permessi esecuzione" `
-            -ExitCode 99
+        Write-ColorOutput "Binario installato ma non eseguibile: $($_.Exception.Message)" -Level Error
+        Write-ColorOutput "Hint: Verifica antivirus o permessi esecuzione" -Level Warning
+        return $false
     }
 }
 
@@ -744,16 +732,80 @@ function Main {
         }
     }
     
+    # ========================================================================
+    # FASE CRITICA: Installazione binario
+    # Se fallisce, terminare senza modificare node-local
+    # ========================================================================
+    
+    Write-Host ""
+    Write-ColorOutput "Installazione binario KnotVM..." -Level Info
+    
     # Installa binario
     $installed = Install-CliBinary -BinPath $binPath -DevMode $Dev
     
-    # Test installazione
-    if ($installed) {
-        Test-Installation -BinPath $binPath
+    if (-not $installed) {
+        Write-Host ""
+        Write-ColorOutput "=== Installazione fallita ===" -Level Error
+        Write-Host ""
+        Write-ColorOutput "Il binario KnotVM non è stato installato correttamente." -Level Error
+        
+        if ($legacyDetected) {
+            Write-ColorOutput "La tua installazione node-local è ancora intatta e funzionante." -Level Info
+            Write-ColorOutput "Risolvi il problema sopra e rilancia install.ps1 per riprovare." -Level Info
+        }
+        
+        Exit-WithError `
+            -Code "KNOT-INSTALL-001" `
+            -Message "Installazione binario fallita" `
+            -Hint "Verifica connessione internet per download release o usa -Dev se hai i sorgenti" `
+            -ExitCode 32
     }
+    
+    # Test installazione
+    Write-Host ""
+    $testPassed = Test-Installation -BinPath $binPath
+    
+    if (-not $testPassed) {
+        Write-Host ""
+        Write-ColorOutput "=== Installazione fallita ===" -Level Error
+        Write-Host ""
+        Write-ColorOutput "Il binario KnotVM è stato scaricato ma non funziona correttamente." -Level Error
+        
+        # Rollback: rimuovi binario non funzionante
+        $knotExe = Join-Path $binPath "$CLI_NAME.exe"
+        if (Test-Path $knotExe) {
+            try {
+                Remove-Item -Path $knotExe -Force -ErrorAction Stop
+                Write-ColorOutput "Binario non funzionante rimosso." -Level Info
+            }
+            catch {
+                Write-ColorOutput "WARN: Impossibile rimuovere binario non funzionante: $($_.Exception.Message)" -Level Warning
+            }
+        }
+        
+        if ($legacyDetected) {
+            Write-ColorOutput "La tua installazione node-local è ancora intatta e funzionante." -Level Info
+        }
+        
+        Exit-WithError `
+            -Code "KNOT-INSTALL-002" `
+            -Message "Test installazione fallito" `
+            -Hint "Verifica antivirus o permessi, poi rilancia install.ps1" `
+            -ExitCode 33
+    }
+
+    # ========================================================================
+    # SUCCESSO: Ora è sicuro pulire node-local e aggiornare PATH
+    # ========================================================================
+
+    Write-Host ""
+    Write-ColorOutput "✓ Installazione binario completata con successo!" -Level Success
 
     # Pulizia legacy + sync proxy post-migrazione
     if ($legacyDetected) {
+        Write-Host ""
+        Write-ColorOutput "Pulizia artefatti legacy node-local..." -Level Info
+        
         Remove-LegacyNodeLocalArtifacts -BasePath $knotHome
         if ($legacyPath -ne $knotHome) {
             Remove-LegacyNodeLocalArtifacts -BasePath $legacyPath
