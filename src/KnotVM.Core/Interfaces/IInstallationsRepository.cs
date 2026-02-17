@@ -44,5 +44,19 @@ public interface IInstallationsRepository
     /// <param name="alias">Alias da cercare</param>
     /// <returns>Installation o null se non trovata</returns>
     Installation? GetByAlias(string alias);
+
+    /// <summary>
+    /// Ottiene un'installazione per versione.
+    /// </summary>
+    /// <param name="version">Versione da cercare (es: "20.11.0")</param>
+    /// <returns>Installation o null se non trovata</returns>
+    Installation? GetByVersion(string version);
+
+    /// <summary>
+    /// Ottiene tutte le installazioni con una specifica versione.
+    /// </summary>
+    /// <param name="version">Versione da cercare (es: "20.11.0")</param>
+    /// <returns>Array di installazioni con quella versione</returns>
+    Installation[] GetAllByVersion(string version);
 }
 

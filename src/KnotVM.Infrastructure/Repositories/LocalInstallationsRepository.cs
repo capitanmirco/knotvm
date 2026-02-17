@@ -201,4 +201,37 @@ public class LocalInstallationsRepository : IInstallationsRepository
 
         return null;
     }
+
+    public Installation? GetByVersion(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return null;
+        }
+
+        // Normalizza versione (rimuovi 'v' prefix se presente)
+        var normalizedVersion = version.TrimStart('v');
+
+        // Cerca tra tutte le installazioni quella con la versione matchante
+        var allInstallations = GetAll();
+        return allInstallations.FirstOrDefault(i => 
+            i.Version.Equals(normalizedVersion, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public Installation[] GetAllByVersion(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return Array.Empty<Installation>();
+        }
+
+        // Normalizza versione (rimuovi 'v' prefix se presente)
+        var normalizedVersion = version.TrimStart('v');
+
+        // Cerca tutte le installazioni con la versione matchante
+        var allInstallations = GetAll();
+        return allInstallations
+            .Where(i => i.Version.Equals(normalizedVersion, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
 }
