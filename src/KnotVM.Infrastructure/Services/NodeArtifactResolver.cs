@@ -85,7 +85,7 @@ public class NodeArtifactResolver : INodeArtifactResolver
         var platformString = $"{osIdentifier}-{archIdentifier}";
 
         return remoteVersion.Files.Any(f => 
-            f.Equals(platformString, StringComparison.OrdinalIgnoreCase)
+            f.StartsWith(platformString, StringComparison.OrdinalIgnoreCase)
         );
     }
 

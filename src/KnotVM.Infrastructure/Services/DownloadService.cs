@@ -65,27 +65,28 @@ public class DownloadService : IDownloadService
 
                 var totalBytes = response.Content.Headers.ContentLength ?? 0;
 
-                using var contentStream = await response.Content.ReadAsStreamAsync(cts.Token);
-                using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);
-
-                var buffer = new byte[BufferSize];
-                int bytesRead;
-
-                while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cts.Token)) > 0)
+                using (var contentStream = await response.Content.ReadAsStreamAsync(cts.Token))
+                using (var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, useAsync: true))
                 {
-                    await fileStream.WriteAsync(buffer, 0, bytesRead, cts.Token);
-                    bytesDownloaded += bytesRead;
+                    var buffer = new byte[BufferSize];
+                    int bytesRead;
 
-                    if (progressCallback != null && totalBytes > 0)
+                    while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cts.Token)) > 0)
                     {
-                        var percent = (int)((bytesDownloaded * 100) / totalBytes);
-                        progressCallback.Report(new DownloadProgress(bytesDownloaded, totalBytes, percent));
+                        await fileStream.WriteAsync(buffer, 0, bytesRead, cts.Token);
+                        bytesDownloaded += bytesRead;
+
+                        if (progressCallback != null && totalBytes > 0)
+                        {
+                            var percent = (int)((bytesDownloaded * 100) / totalBytes);
+                            progressCallback.Report(new DownloadProgress(bytesDownloaded, totalBytes, percent));
+                        }
                     }
-                }
 
-                await fileStream.FlushAsync(cts.Token);
+                    await fileStream.FlushAsync(cts.Token);
+                } // FileStream è ora completamente chiuso
 
-                // Verifica checksum se fornito
+                // Verifica checksum se fornito (dopo che il file è chiuso)
                 var checksumVerified = false;
                 if (!string.IsNullOrEmpty(expectedSha256))
                 {

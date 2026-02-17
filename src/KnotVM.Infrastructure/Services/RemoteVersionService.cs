@@ -102,7 +102,7 @@ public class RemoteVersionService : IRemoteVersionService
         if (string.IsNullOrWhiteSpace(versionPattern))
             return null;
 
-        var pattern = versionPattern.Trim().ToLowerInvariant();
+        var pattern = versionPattern.Trim().ToLowerInvariant().TrimStart('v');
 
         // Alias special
         if (pattern == "latest")

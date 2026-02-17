@@ -127,15 +127,48 @@ public class InstallationService : IInstallationService
             );
         }
 
-        // Download con checksum verification
-        var downloadResult = await _downloadService.DownloadFileAsync(
-            downloadUrl,
-            downloadPath,
-            expectedChecksum,
-            progressCallback,
-            timeoutSeconds: 600, // 10 minuti
-            cancellationToken
-        );
+        // Verifica se il file è già in cache con checksum corretto
+        DownloadResult downloadResult;
+        if (_fileSystem.FileExists(downloadPath))
+        {
+            var existingChecksum = await _downloadService.VerifyChecksumAsync(downloadPath, expectedChecksum);
+            if (existingChecksum)
+            {
+                // File già presente e valido, salta il download
+                var fileSize = new FileInfo(downloadPath).Length;
+                downloadResult = new DownloadResult(
+                    Success: true,
+                    LocalFilePath: downloadPath,
+                    BytesDownloaded: fileSize,
+                    ChecksumVerified: true
+                );
+            }
+            else
+            {
+                // File corrotto, cancella e scarica di nuovo
+                _fileSystem.DeleteFileIfExists(downloadPath);
+                downloadResult = await _downloadService.DownloadFileAsync(
+                    downloadUrl,
+                    downloadPath,
+                    expectedChecksum,
+                    progressCallback,
+                    timeoutSeconds: 600, // 10 minuti
+                    cancellationToken
+                );
+            }
+        }
+        else
+        {
+            // File non esiste, scarica
+            downloadResult = await _downloadService.DownloadFileAsync(
+                downloadUrl,
+                downloadPath,
+                expectedChecksum,
+                progressCallback,
+                timeoutSeconds: 600, // 10 minuti
+                cancellationToken
+            );
+        }
 
         if (!downloadResult.Success || downloadResult.LocalFilePath == null)
         {
