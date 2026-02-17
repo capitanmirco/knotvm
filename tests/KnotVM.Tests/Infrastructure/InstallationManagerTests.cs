@@ -18,6 +18,7 @@ public class InstallationManagerTests
     private readonly Mock<IFileSystemService> _fileSystemMock;
     private readonly Mock<ISyncService> _syncServiceMock;
     private readonly Mock<ILockManager> _lockManagerMock;
+    private readonly Mock<IProcessRunner> _processRunnerMock;
     private readonly Mock<IDisposable> _lockHandleMock;
     private readonly InstallationManager _sut;
 
@@ -30,10 +31,15 @@ public class InstallationManagerTests
         _fileSystemMock = new Mock<IFileSystemService>();
         _syncServiceMock = new Mock<ISyncService>();
         _lockManagerMock = new Mock<ILockManager>();
+        _processRunnerMock = new Mock<IProcessRunner>();
         _lockHandleMock = new Mock<IDisposable>();
 
         _lockManagerMock.Setup(x => x.AcquireLock(It.IsAny<string>(), It.IsAny<int>()))
             .Returns(_lockHandleMock.Object);
+
+        // Setup default: nessun processo in esecuzione
+        _processRunnerMock.Setup(x => x.FindRunningProcesses(It.IsAny<string>()))
+            .Returns(new List<int>());
 
         _sut = new InstallationManager(
             _repositoryMock.Object,
@@ -42,7 +48,8 @@ public class InstallationManagerTests
             _pathServiceMock.Object,
             _fileSystemMock.Object,
             _syncServiceMock.Object,
-            _lockManagerMock.Object
+            _lockManagerMock.Object,
+            _processRunnerMock.Object
         );
     }
 
@@ -296,6 +303,27 @@ public class InstallationManagerTests
         // Assert
         act.Should().Throw<KnotVMException>()
             .Which.ErrorCode.Should().Be(KnotErrorCode.InstallationNotFound);
+    }
+
+    [Fact]
+    public void RemoveInstallation_WithRunningProcesses_ThrowsKnotVMHintException()
+    {
+        // Arrange
+        var installation = new Installation("test-alias", "20.11.0", "/path/test", Use: false);
+        _repositoryMock.Setup(x => x.GetByAlias("test-alias")).Returns(installation);
+        _pathServiceMock.Setup(x => x.GetInstallationPath("test-alias")).Returns("/path/test");
+        _processRunnerMock.Setup(x => x.FindRunningProcesses(It.IsAny<string>()))
+            .Returns(new List<int> { 1234, 5678 });
+
+        // Act
+        var act = () => _sut.RemoveInstallation("test-alias", force: false);
+
+        // Assert
+        var exception = act.Should().Throw<KnotVMHintException>()
+            .Which;
+        exception.ErrorCode.Should().Be(KnotErrorCode.InstallationFailed);
+        exception.Message.Should().Contain("2 processo/i Node.js in esecuzione");
+        exception.Message.Should().Contain("1234, 5678");
     }
 
     #endregion

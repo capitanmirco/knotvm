@@ -212,4 +212,50 @@ public class ProcessRunner : IProcessRunner
 
         return startInfo;
     }
+
+    public List<int> FindRunningProcesses(string executablePath)
+    {
+        var processIds = new List<int>();
+
+        try
+        {
+            // Normalizza il path per il confronto
+            var normalizedPath = Path.GetFullPath(executablePath).ToLowerInvariant();
+
+            // Ottieni tutti i processi con lo stesso nome dell'eseguibile
+            var processName = Path.GetFileNameWithoutExtension(executablePath);
+            var processes = System.Diagnostics.Process.GetProcessesByName(processName);
+
+            foreach (var process in processes)
+            {
+                try
+                {
+                    // Confronta il path del processo con quello cercato
+                    var processPath = process.MainModule?.FileName;
+                    if (processPath != null)
+                    {
+                        var normalizedProcessPath = Path.GetFullPath(processPath).ToLowerInvariant();
+                        if (normalizedProcessPath == normalizedPath)
+                        {
+                            processIds.Add(process.Id);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignora errori di accesso (processo di sistema, ecc.)
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
+        catch
+        {
+            // Ignora errori generali - ritorna lista vuota
+        }
+
+        return processIds;
+    }
 }

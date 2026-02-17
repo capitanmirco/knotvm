@@ -17,6 +17,7 @@ public class InstallationManager : IInstallationManager
     private readonly IFileSystemService _fileSystem;
     private readonly ISyncService _syncService;
     private readonly ILockManager _lockManager;
+    private readonly IProcessRunner _processRunner;
 
     // Alias riservati che non possono essere usati
     private static readonly HashSet<string> ReservedAliases = new(StringComparer.OrdinalIgnoreCase)
@@ -34,7 +35,8 @@ public class InstallationManager : IInstallationManager
         IPathService paths,
         IFileSystemService fileSystem,
         ISyncService syncService,
-        ILockManager lockManager)
+        ILockManager lockManager,
+        IProcessRunner processRunner)
     {
         _installationsRepo = installationsRepo;
         _versionManager = versionManager;
@@ -43,6 +45,7 @@ public class InstallationManager : IInstallationManager
         _fileSystem = fileSystem;
         _syncService = syncService;
         _lockManager = lockManager;
+        _processRunner = processRunner;
     }
 
     public void UseInstallation(string alias)
@@ -161,6 +164,21 @@ public class InstallationManager : IInstallationManager
 
         try
         {
+            // Rileva processi node.exe in esecuzione da questa installazione
+            var installPath = _paths.GetInstallationPath(alias);
+            var nodeExePath = Path.Combine(installPath, "node.exe");
+            var runningProcesses = _processRunner.FindRunningProcesses(nodeExePath);
+
+            if (runningProcesses.Count > 0)
+            {
+                var processIds = string.Join(", ", runningProcesses);
+                throw new KnotVMHintException(
+                    KnotErrorCode.InstallationFailed,
+                    $"Impossibile rimuovere installazione '{alias}': {runningProcesses.Count} processo/i Node.js in esecuzione (PID: {processIds})",
+                    $"Chiudi tutti i processi Node.js attivi prima di rimuovere l'installazione. Puoi usare:\n  PowerShell: Stop-Process -Id {processIds} -Force\n  CMD: taskkill /F /PID {processIds.Replace(", ", " /PID ")}"
+                );
+            }
+
             // Se installazione attiva e force=true, disattiva prima
             if (installation.Use)
             {
@@ -168,7 +186,6 @@ public class InstallationManager : IInstallationManager
             }
 
             // Rimuovi directory filesystem
-            var installPath = _paths.GetInstallationPath(alias);
             if (_fileSystem.DirectoryExists(installPath))
             {
                 _fileSystem.DeleteDirectoryIfExists(installPath, recursive: true);
@@ -182,6 +199,26 @@ public class InstallationManager : IInstallationManager
             {
                 _syncService.Sync(force: false);
             }
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new KnotVMHintException(
+                KnotErrorCode.InstallationFailed,
+                $"Errore rimozione installazione '{alias}': Accesso negato",
+                "Assicurati che nessun processo Node.js sia in esecuzione. Chiudi eventuali terminali, IDE o applicazioni che usano Node.js da questa installazione. Su Windows, potresti dover terminare i processi 'node.exe' dal Task Manager.",
+                ex
+            );
+        }
+        catch (IOException ex) when (ex.Message.Contains("being used by another process") || 
+                                      ex.Message.Contains("because it is being used") ||
+                                      ex.Message.Contains("in uso"))
+        {
+            throw new KnotVMHintException(
+                KnotErrorCode.InstallationFailed,
+                $"Errore rimozione installazione '{alias}': File in uso da un altro processo",
+                "Chiudi tutti i processi Node.js, terminali e IDE che potrebbero usare questa installazione. Prova a eseguire 'taskkill /F /IM node.exe' per terminare tutti i processi Node.js.",
+                ex
+            );
         }
         catch (Exception ex) when (ex is not KnotVMException)
         {

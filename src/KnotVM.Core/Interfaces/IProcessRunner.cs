@@ -85,4 +85,11 @@ public interface IProcessRunner
     /// <param name="nodeExecutablePath">Path node executable</param>
     /// <returns>Versione (es: "20.11.0") o null se fallisce</returns>
     string? GetNodeVersion(string nodeExecutablePath);
+
+    /// <summary>
+    /// Trova i processi in esecuzione da un determinato percorso.
+    /// </summary>
+    /// <param name="executablePath">Path dell'eseguibile da cercare</param>
+    /// <returns>Lista di process ID trovati</returns>
+    List<int> FindRunningProcesses(string executablePath);
 }

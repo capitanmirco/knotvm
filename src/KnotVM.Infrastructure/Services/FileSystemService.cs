@@ -68,14 +68,113 @@ public class FileSystemService : IFileSystemService
 
     public void DeleteFileIfExists(string filePath)
     {
-        if (File.Exists(filePath))
-            File.Delete(filePath);
+        if (!File.Exists(filePath))
+            return;
+
+        const int maxRetries = 3;
+        const int delayMs = 100;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                // Rimuovi attributo read-only se presente
+                var fileInfo = new FileInfo(filePath);
+                if ((fileInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                {
+                    fileInfo.Attributes &= ~FileAttributes.ReadOnly;
+                }
+
+                File.Delete(filePath);
+                return; // Successo
+            }
+            catch (UnauthorizedAccessException) when (attempt < maxRetries)
+            {
+                // File potrebbe essere locked, attendi e riprova
+                Thread.Sleep(delayMs * (attempt + 1));
+            }
+            catch (IOException) when (attempt < maxRetries)
+            {
+                // File in uso, attendi e riprova
+                Thread.Sleep(delayMs * (attempt + 1));
+            }
+        }
+
+        // Ultimo tentativo senza catch - lancia l'eccezione originale
+        File.Delete(filePath);
     }
 
     public void DeleteDirectoryIfExists(string directoryPath, bool recursive = true)
     {
-        if (Directory.Exists(directoryPath))
-            Directory.Delete(directoryPath, recursive);
+        if (!Directory.Exists(directoryPath))
+            return;
+
+        const int maxRetries = 3;
+        const int delayMs = 100;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                // Prima di eliminare, prova a rimuovere attributi read-only/hidden
+                if (recursive)
+                {
+                    RemoveReadOnlyAttributes(directoryPath);
+                }
+
+                Directory.Delete(directoryPath, recursive);
+                return; // Successo
+            }
+            catch (UnauthorizedAccessException) when (attempt < maxRetries)
+            {
+                // File potrebbe essere locked, attendi e riprova
+                Thread.Sleep(delayMs * (attempt + 1));
+            }
+            catch (IOException) when (attempt < maxRetries)
+            {
+                // File in uso, attendi e riprova
+                Thread.Sleep(delayMs * (attempt + 1));
+            }
+        }
+
+        // Ultimo tentativo senza catch - lancia l'eccezione originale
+        Directory.Delete(directoryPath, recursive);
+    }
+
+    private void RemoveReadOnlyAttributes(string directoryPath)
+    {
+        try
+        {
+            var dirInfo = new DirectoryInfo(directoryPath);
+            
+            // Rimuovi attributi read-only dalla directory stessa
+            if ((dirInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+            {
+                dirInfo.Attributes &= ~FileAttributes.ReadOnly;
+            }
+
+            // Rimuovi attributi read-only da tutti i file
+            foreach (var file in dirInfo.GetFiles("*", SearchOption.AllDirectories))
+            {
+                if ((file.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                {
+                    file.Attributes &= ~FileAttributes.ReadOnly;
+                }
+            }
+
+            // Rimuovi attributi read-only da tutte le subdirectory
+            foreach (var dir in dirInfo.GetDirectories("*", SearchOption.AllDirectories))
+            {
+                if ((dir.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                {
+                    dir.Attributes &= ~FileAttributes.ReadOnly;
+                }
+            }
+        }
+        catch
+        {
+            // Ignora errori nella rimozione attributi - può fallire ma non è critico
+        }
     }
 
     public void CopyFile(string sourceFile, string destinationFile, bool overwrite = false)
