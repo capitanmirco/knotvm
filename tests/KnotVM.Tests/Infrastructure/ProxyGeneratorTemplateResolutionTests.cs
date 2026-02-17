@@ -20,6 +20,25 @@ public class ProxyGeneratorTemplateResolutionTests : IDisposable
         _emptyTemplatesPath = Path.Combine(_tempRoot, "templates");
         Directory.CreateDirectory(_tempBinPath);
         Directory.CreateDirectory(_emptyTemplatesPath);
+        
+        // Copia template dalla repository alla directory temporanea
+        CopyTemplatesFromRepository();
+    }
+    
+    private void CopyTemplatesFromRepository()
+    {
+        // Trova directory templates dalla root del repository
+        var currentDir = AppDomain.CurrentDomain.BaseDirectory;
+        var repoTemplatesPath = Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "..", "templates"));
+        
+        if (Directory.Exists(repoTemplatesPath))
+        {
+            foreach (var templateFile in Directory.GetFiles(repoTemplatesPath, "*.template"))
+            {
+                var destFile = Path.Combine(_emptyTemplatesPath, Path.GetFileName(templateFile));
+                File.Copy(templateFile, destFile, overwrite: true);
+            }
+        }
     }
 
     [Fact]
@@ -34,9 +53,10 @@ public class ProxyGeneratorTemplateResolutionTests : IDisposable
         pathServiceMock.Setup(x => x.GetSettingsFilePath()).Returns(Path.Combine(_tempRoot, "settings.txt"));
         pathServiceMock.Setup(x => x.GetVersionsPath()).Returns(Path.Combine(_tempRoot, "versions"));
 
-        var fileSystemMock = new Mock<IFileSystemService>();
+        // Usa FileSystemService reale invece di mock
+        var fileSystem = new FileSystemService(platformServiceMock.Object);
 
-        var service = new ProxyGeneratorService(platformServiceMock.Object, pathServiceMock.Object, fileSystemMock.Object);
+        var service = new ProxyGeneratorService(platformServiceMock.Object, pathServiceMock.Object, fileSystem);
 
         service.GenerateGenericProxy("node", "node.exe");
 
