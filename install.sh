@@ -283,21 +283,35 @@ install_from_source() {
             99
     fi
     
-    log_info "Compilazione progetto KnotVM.CLI..."
+    # Determina RID per publish
+    local os_type arch rid
+    os_type=$(get_os_type)
+    arch=$(get_arch)
+    
+    case "$os_type" in
+        linux)
+            rid="linux-$arch"
+            ;;
+        darwin)
+            rid="osx-$arch"
+            ;;
+    esac
+    
+    log_info "Publish progetto KnotVM.CLI (RID: $rid)..."
     
     local project_path="$script_dir/src/KnotVM.CLI/KnotVM.CLI.csproj"
     
-    # Build
-    if ! dotnet build "$project_path" -c Release --nologo -v quiet; then
+    # Publish self-contained per ottenere un eseguibile standalone
+    if ! dotnet publish "$project_path" -c Release -r "$rid" --self-contained -p:PublishSingleFile=true --nologo -v quiet; then
         exit_with_error \
             "KNOT-GEN-001" \
-            "Compilazione fallita" \
-            "Verifica errori build con: dotnet build $project_path -c Release" \
+            "Publish fallita" \
+            "Verifica errori publish con: dotnet publish $project_path -c Release -r $rid --self-contained -p:PublishSingleFile=true" \
             99
     fi
     
-    # Trova output
-    local output_path="$script_dir/src/KnotVM.CLI/bin/Release/net8.0/knot"
+    # Trova output publish
+    local output_path="$script_dir/src/KnotVM.CLI/bin/Release/net8.0/$rid/publish/knot"
     if [ ! -f "$output_path" ]; then
         exit_with_error \
             "KNOT-GEN-001" \

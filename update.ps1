@@ -29,7 +29,6 @@ Set-StrictMode -Version Latest
 
 $GITHUB_REPO = "mmennonna/knotvm"
 $CLI_NAME = "knot"
-$RELEASE_URL = "https://github.com/$GITHUB_REPO/releases/latest/download/knot-win-x64.exe"
 $VERSION_CHECK_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 
 # ============================================================================
@@ -122,6 +121,32 @@ function Get-LatestVersion {
     }
 }
 
+function Get-SystemArchitecture {
+    $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+    return $arch.ToString().ToLower()
+}
+
+function Get-ReleaseRuntimeIdentifier {
+    $arch = Get-SystemArchitecture
+    switch ($arch) {
+        "x64" { return "win-x64" }
+        "arm64" { return "win-arm64" }
+        default {
+            Exit-WithError `
+                -Code "KNOT-OS-002" `
+                -Message "Architettura non supportata: $arch" `
+                -Hint "Architetture supportate: x64, arm64" `
+                -ExitCode 11
+        }
+    }
+}
+
+function Get-ReleaseUrl {
+    $rid = Get-ReleaseRuntimeIdentifier
+    $archSuffix = $rid -replace "^win-", ""
+    return "https://github.com/$GITHUB_REPO/releases/latest/download/knot-win-$archSuffix.exe"
+}
+
 # ============================================================================
 # VERIFICA INSTALLAZIONE
 # ============================================================================
@@ -181,12 +206,13 @@ function Update-CliBinary {
     
     # Download nuova versione
     $tempFile = Join-Path $env:TEMP "$CLI_NAME-update.exe"
+    $releaseUrl = Get-ReleaseUrl
     
     try {
-        Write-ColorOutput "Download nuova versione da $RELEASE_URL..." -Level Info
+        Write-ColorOutput "Download nuova versione da $releaseUrl..." -Level Info
         
         $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $RELEASE_URL -OutFile $tempFile -UseBasicParsing
+        Invoke-WebRequest -Uri $releaseUrl -OutFile $tempFile -UseBasicParsing
         $ProgressPreference = 'Continue'
         
         if (-not (Test-Path $tempFile)) {
