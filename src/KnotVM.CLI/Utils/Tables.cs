@@ -1,5 +1,3 @@
-
-using System.Net.Http.Headers;
 using Spectre.Console;
 
 namespace KnotVM.CLI.Utils;
@@ -8,12 +6,9 @@ public static class Tables
 {
     public static Table CreateSpectreTable(string[] headerStringValues)
     {
-        var table = new Table();
-        table.Border(TableBorder.Rounded);
+        var table = new Table().Border(TableBorder.Rounded);
         foreach (var header in headerStringValues)
-        {
             table.AddColumn(new TableColumn($"[bold]{header}[/]").Centered());
-        }
         return table;
     }
 

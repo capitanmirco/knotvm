@@ -46,7 +46,6 @@ public class SyncCommand : Command
         {
             using var lockHandle = _lockManager.AcquireLock("state");
 
-            // Verifica se ci sono installazioni
             var installations = _repository.GetAll();
             if (installations.Length == 0)
             {
@@ -55,7 +54,6 @@ public class SyncCommand : Command
                 return 0;
             }
 
-            // Verifica se sync è necessaria (se non force)
             if (!force && !_syncService.IsSyncNeeded())
             {
                 AnsiConsole.MarkupLine("[green][[OK]][/] Proxy già sincronizzati");
@@ -65,31 +63,21 @@ public class SyncCommand : Command
             AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
                 .SpinnerStyle(Style.Parse("green"))
-                .Start("Sincronizzazione proxy...", ctx =>
-                {
-                    _syncService.Sync(force);
-                });
+                .Start("Sincronizzazione proxy...", ctx => _syncService.Sync(force));
 
-            if (force)
-            {
-                AnsiConsole.MarkupLine("[green][[OK]][/] Tutti i proxy rigenerati con successo");
-            }
-            else
-            {
-                AnsiConsole.MarkupLine("[green][[OK]][/] Proxy dinamici sincronizzati con successo");
-            }
+            AnsiConsole.MarkupLine(force 
+                ? "[green][[OK]][/] Tutti i proxy rigenerati con successo"
+                : "[green][[OK]][/] Proxy dinamici sincronizzati con successo");
 
             AnsiConsole.WriteLine();
-            var proxyNames = string.Join(", ", new[]
-            {
+            var proxyNames = string.Join(", ", [
                 ProxyNaming.BuildIsolatedProxyName("node"),
                 ProxyNaming.BuildIsolatedProxyName("npm"),
                 ProxyNaming.BuildIsolatedProxyName("npx"),
                 ProxyNaming.BuildIsolatedProxyName("corepack")
-            });
+            ]);
             AnsiConsole.MarkupLine($"[dim]Proxy disponibili: {proxyNames}[/]");
             AnsiConsole.MarkupLine("[dim]Package managers auto-rilevati: npm, yarn, pnpm, bun, ni, nun, nup[/]");
-
             return 0;
         });
     }

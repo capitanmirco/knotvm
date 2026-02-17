@@ -12,24 +12,18 @@ public class VersionCommand : Command
 {
     public VersionCommand() : base("version", "Mostra la versione di KnotVM")
     {
-        // Handler
         this.SetAction((_) => Execute());
     }
 
-    private static int Execute()
+    private static int Execute() => CommandExecutor.ExecuteWithExitCode(() =>
     {
-        return CommandExecutor.ExecuteWithExitCode(() =>
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
-            var infoVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? version;
+        var assembly = Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
+        var infoVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? version;
 
-            AnsiConsole.MarkupLine($"[bold green]KnotVM[/] versione [bold]{infoVersion}[/]");
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[dim]Gestore versioni Node.js cross-platform[/]");
-            AnsiConsole.MarkupLine("[dim]Copyright © 2026[/]");
-
-            return 0;
-        });
-    }
+        AnsiConsole.MarkupLine($"[bold green]KnotVM[/] versione [bold]{infoVersion}[/]");
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[dim]Gestore versioni Node.js cross-platform[/]");
+        AnsiConsole.MarkupLine("[dim]Copyright © 2026[/]");
+    });
 }

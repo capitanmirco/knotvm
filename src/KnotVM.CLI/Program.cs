@@ -9,31 +9,30 @@ class Program
 {
     static int Main(string[] args)
     {
-        // Setup DI container
         var services = new ServiceCollection();
-        
-        // Registra servizi e comandi
         services.AddKnotVMServices();
         services.AddKnotVMCommands();
         
         var serviceProvider = services.BuildServiceProvider();
-        
-        // Configurazione root command
         var rootCommand = new RootCommand("knot - Gestore versioni Node.js cross-platform");
 
-        // Aggiungi comandi (risolvi dal DI container)
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<ListCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<ListRemoteCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<InstallCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<UseCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<SyncCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<RemoveCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<RenameCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<RunCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<CacheCommand>());
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<VersionCommand>());
+        foreach (var command in new Command[]
+        {
+            serviceProvider.GetRequiredService<ListCommand>(),
+            serviceProvider.GetRequiredService<ListRemoteCommand>(),
+            serviceProvider.GetRequiredService<InstallCommand>(),
+            serviceProvider.GetRequiredService<UseCommand>(),
+            serviceProvider.GetRequiredService<SyncCommand>(),
+            serviceProvider.GetRequiredService<RemoveCommand>(),
+            serviceProvider.GetRequiredService<RenameCommand>(),
+            serviceProvider.GetRequiredService<RunCommand>(),
+            serviceProvider.GetRequiredService<CacheCommand>(),
+            serviceProvider.GetRequiredService<VersionCommand>()
+        })
+        {
+            rootCommand.Subcommands.Add(command);
+        }
 
-        // Esegui
         return rootCommand.Parse(args).Invoke();
     }
 }

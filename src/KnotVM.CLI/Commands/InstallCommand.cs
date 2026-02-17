@@ -73,16 +73,11 @@ public class InstallCommand : Command
         {
             using var cancellationScope = new ConsoleCancellationScope();
 
-            // Validazione mutua esclusione: una sola sorgente versione.
             CommandValidation.EnsureExactlyOne(
                 "Specificare una versione, --latest o --latest-lts",
                 "Specificare solo una tra: <version>, --latest o --latest-lts",
-                !string.IsNullOrEmpty(version),
-                latest,
-                latestLts
-            );
+                !string.IsNullOrEmpty(version), latest, latestLts);
 
-            // Determina pattern versione
             string versionPattern = (latest, latestLts, version) switch
             {
                 (false, true, _) => "lts",
@@ -91,11 +86,8 @@ public class InstallCommand : Command
                 _ => throw new InvalidOperationException("Stato versione non valido")
             };
 
-            // Validazione alias se fornito
             if (customAlias != null)
-            {
                 _installationManager.ValidateAliasOrThrow(customAlias);
-            }
 
             InstallationPrepareResult? result = null;
 
@@ -104,50 +96,29 @@ public class InstallCommand : Command
                 .SpinnerStyle(Style.Parse("green"))
                 .StartAsync("Installazione in corso...", async ctx =>
                 {
-                    // Progress reporting
                     var progress = new Progress<DownloadProgress>(p =>
                     {
-                        if (p.TotalBytes > 0)
-                        {
-                            var percentage = (int)((double)p.BytesDownloaded / p.TotalBytes * 100);
-                            ctx.Status($"Download in corso... {percentage}% ({p.BytesDownloaded.ToHumanReadableSize()} / {p.TotalBytes.ToHumanReadableSize()})");
-                        }
-                        else
-                        {
-                            ctx.Status($"Download in corso... {p.BytesDownloaded.ToHumanReadableSize()}");
-                        }
+                        ctx.Status(p.TotalBytes > 0
+                            ? $"Download in corso... {(int)((double)p.BytesDownloaded / p.TotalBytes * 100)}% ({p.BytesDownloaded.ToHumanReadableSize()} / {p.TotalBytes.ToHumanReadableSize()})"
+                            : $"Download in corso... {p.BytesDownloaded.ToHumanReadableSize()}");
                     });
 
                     result = await _installationService.InstallAsync(
-                        versionPattern,
-                        customAlias,
-                        forceReinstall: false,
-                        progressCallback: progress,
-                        cancellationToken: cancellationScope.Token
-                    );
+                        versionPattern, customAlias, forceReinstall: false,
+                        progressCallback: progress, cancellationToken: cancellationScope.Token);
                 });
 
             if (result == null)
-            {
-                throw new KnotVMException(
-                    KnotErrorCode.UnexpectedError,
-                    "Installazione fallita"
-                );
-            }
+                throw new KnotVMException(KnotErrorCode.UnexpectedError, "Installazione fallita");
 
             if (!result.Success)
             {
-                var errorCode = KnotErrorCode.InstallationFailed;
-                if (!string.IsNullOrWhiteSpace(result.ErrorCode) &&
-                    Enum.TryParse<KnotErrorCode>(result.ErrorCode, out var parsedErrorCode))
-                {
-                    errorCode = parsedErrorCode;
-                }
+                var errorCode = !string.IsNullOrWhiteSpace(result.ErrorCode) && 
+                                Enum.TryParse<KnotErrorCode>(result.ErrorCode, out var parsedErrorCode)
+                    ? parsedErrorCode
+                    : KnotErrorCode.InstallationFailed;
 
-                throw new KnotVMException(
-                    errorCode,
-                    result.ErrorMessage ?? "Installazione fallita"
-                );
+                throw new KnotVMException(errorCode, result.ErrorMessage ?? "Installazione fallita");
             }
 
             // Success message

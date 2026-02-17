@@ -56,12 +56,8 @@ public class ListCommand : Command
     private static Table CreateListTable(bool showPath)
     {
         var table = Utils.Tables.CreateSpectreTable(["Alias", "Versione Node.js", "Attiva"]);
-
         if (showPath)
-        {
             Utils.Tables.AddHeaderColumn(table, "Path");
-        }
-
         return table;
     }
 
@@ -70,15 +66,11 @@ public class ListCommand : Command
         foreach (var installation in installations)
         {
             bool isActive = installation.Use;
-            string[] values = [installation.Alias, installation.Version, isActive ? "Sì" : "No"];
-            if (showPath)
-            {
-                values = [.. values, installation.Path];
-            }
-            Utils.Tables.AddContentRow(
-                    table,
-                    values, v => isActive ? $"[green]{v}[/]" : $"[dim]{v}[/]"
-                );
+            string[] values = showPath 
+                ? [installation.Alias, installation.Version, isActive ? "Sì" : "No", installation.Path]
+                : [installation.Alias, installation.Version, isActive ? "Sì" : "No"];
+            
+            Utils.Tables.AddContentRow(table, values, v => isActive ? $"[green]{v}[/]" : $"[dim]{v}[/]");
         }
     }
 

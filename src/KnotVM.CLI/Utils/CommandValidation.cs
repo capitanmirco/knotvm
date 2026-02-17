@@ -14,18 +14,15 @@ public static class CommandValidation
     /// </summary>
     public static void EnsureExactlyOne(string noneSelectedMessage, string multipleSelectedMessage, params bool[] selections)
     {
-        if (selections == null || selections.Length == 0)
+        ArgumentNullException.ThrowIfNull(selections);
+        if (selections.Length == 0)
             throw new ArgumentException("Almeno una selezione deve essere specificata", nameof(selections));
 
         int selectedCount = selections.Count(s => s);
         if (selectedCount == 0)
-        {
             throw new KnotVMException(KnotErrorCode.UnexpectedError, noneSelectedMessage);
-        }
 
         if (selectedCount > 1)
-        {
             throw new KnotVMException(KnotErrorCode.UnexpectedError, multipleSelectedMessage);
-        }
     }
 }

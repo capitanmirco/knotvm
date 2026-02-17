@@ -49,45 +49,20 @@ public class RenameCommand : Command
     {
         return CommandExecutor.ExecuteWithExitCode(() =>
         {
-            // Validazione argomenti obbligatori
-            if (string.IsNullOrWhiteSpace(fromAlias))
-            {
-                throw new KnotVMException(
-                    KnotErrorCode.UnexpectedError,
-                    "--from è obbligatorio"
-                );
-            }
+            ArgumentException.ThrowIfNullOrWhiteSpace(fromAlias, "--from");
+            ArgumentException.ThrowIfNullOrWhiteSpace(toAlias, "--to");
 
-            if (string.IsNullOrWhiteSpace(toAlias))
-            {
-                throw new KnotVMException(
-                    KnotErrorCode.UnexpectedError,
-                    "--to è obbligatorio"
-                );
-            }
-
-            // Verifica che l'installazione sorgente esista
-            var installation = _repository.GetByAlias(fromAlias);
-
-            if (installation == null)
-            {
-                throw new KnotVMHintException(
-                    KnotErrorCode.InstallationNotFound,
+            var installation = _repository.GetByAlias(fromAlias) 
+                ?? throw new KnotVMHintException(KnotErrorCode.InstallationNotFound,
                     $"Installazione '{fromAlias}' non trovata",
-                    "Usare 'knot list' per vedere installazioni disponibili"
-                );
-            }
+                    "Usare 'knot list' per vedere installazioni disponibili");
 
-            // Validazione alias destinazione
             _installationManager.ValidateAliasOrThrow(toAlias);
 
             AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
                 .SpinnerStyle(Style.Parse("green"))
-                .Start("Rinominazione in corso...", ctx =>
-                {
-                    _installationManager.RenameInstallation(fromAlias, toAlias);
-                });
+                .Start("Rinominazione in corso...", ctx => _installationManager.RenameInstallation(fromAlias, toAlias));
 
             AnsiConsole.MarkupLine($"[green][[OK]][/] Installazione rinominata da [bold]{fromAlias}[/] a [bold]{toAlias}[/]");
             
@@ -96,7 +71,6 @@ public class RenameCommand : Command
                 AnsiConsole.WriteLine();
                 AnsiConsole.MarkupLine("[dim]Nota: l'installazione è attiva, i proxy sono stati aggiornati automaticamente[/]");
             }
-
             return 0;
         });
     }

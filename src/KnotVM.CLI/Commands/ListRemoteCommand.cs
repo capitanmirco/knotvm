@@ -61,23 +61,15 @@ public class ListRemoteCommand : Command
             using var cancellationScope = new ConsoleCancellationScope();
 
             if (showAll && customLimit.HasValue)
-            {
-                throw new KnotVMException(
-                    KnotErrorCode.UnexpectedError,
-                    "Opzioni incompatibili: usare solo una tra --all e --limit"
-                );
-            }
+                throw new KnotVMException(KnotErrorCode.UnexpectedError, 
+                    "Opzioni incompatibili: usare solo una tra --all e --limit");
 
-            if (customLimit.HasValue && customLimit.Value <= 0)
-            {
-                throw new KnotVMHintException(
-                    KnotErrorCode.UnexpectedError,
+            if (customLimit is <= 0)
+                throw new KnotVMHintException(KnotErrorCode.UnexpectedError,
                     "Valore --limit non valido",
-                    "Specificare un valore intero positivo (es: --limit 20)"
-                );
-            }
+                    "Specificare un valore intero positivo (es: --limit 20)");
 
-            RemoteVersion[] versions = Array.Empty<RemoteVersion>();
+            RemoteVersion[] versions = [];
             
             await AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
@@ -95,7 +87,6 @@ public class ListRemoteCommand : Command
                 return;
             }
 
-            // Determina il limite
             int effectiveLimit = showAll ? versions.Length : (customLimit ?? 20);
             var versionsToShow = versions.Take(effectiveLimit).ToArray();
 

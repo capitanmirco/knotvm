@@ -55,66 +55,38 @@ public class RunCommand : Command
     {
         return CommandExecutor.ExecuteWithExitCode(() =>
         {
-            // Validazione --with-version obbligatorio
-            if (string.IsNullOrWhiteSpace(alias))
-            {
-                throw new KnotVMHintException(
-                    KnotErrorCode.UnexpectedError,
-                    "--with-version è obbligatorio",
-                    "Specificare l'alias dell'installazione da usare"
-                );
-            }
+            ArgumentException.ThrowIfNullOrWhiteSpace(alias, nameof(alias));
 
-            // Verifica che l'installazione esista
-            var installation = _repository.GetByAlias(alias);
-
-            if (installation == null)
-            {
-                throw new KnotVMHintException(
-                    KnotErrorCode.InstallationNotFound,
+            var installation = _repository.GetByAlias(alias) 
+                ?? throw new KnotVMHintException(KnotErrorCode.InstallationNotFound,
                     $"Installazione '{alias}' non trovata",
-                    "Usare 'knot list' per vedere installazioni disponibili"
-                );
-            }
+                    "Usare 'knot list' per vedere installazioni disponibili");
 
-            // Parse comando (primo token è il comando, resto sono argomenti)
             var parts = ParseCommandLine(commandLine);
             if (parts.Length == 0)
             {
-                throw new KnotVMHintException(
-                    KnotErrorCode.InstallationFailed,
+                throw new KnotVMHintException(KnotErrorCode.InstallationFailed,
                     "Comando non valido",
-                    "Specificare un comando da eseguire"
-                );
+                    "Specificare un comando da eseguire");
             }
 
             var commandName = parts[0];
             var arguments = parts.Skip(1).ToArray();
             var lookupCommand = _platformService.GetCurrentOs() == HostOs.Windows ? "where" : "which";
 
-            // Risolvi path comando con OS-aware resolution order
-            var commandPath = ResolveCommandPath(installation.Path, commandName);
-            if (commandPath == null)
-            {
-                throw new KnotVMHintException(
-                    KnotErrorCode.CommandNotFound,
+            var commandPath = ResolveCommandPath(installation.Path, commandName) 
+                ?? throw new KnotVMHintException(KnotErrorCode.CommandNotFound,
                     $"Comando '{commandName}' non trovato nella versione {installation.Alias}",
-                    $"Verificare presenza comando con 'knot run \"{lookupCommand} {commandName}\" --with-version {installation.Alias}'"
-                );
-            }
+                    $"Verificare presenza comando con 'knot run \"{lookupCommand} {commandName}\" --with-version {installation.Alias}'");
 
-            // Setup environment isolato
             var env = SetupEnvironment(installation.Path);
 
-            // Esegui comando e propaga exit code
-            var exitCode = _processRunner.RunAndPropagateExitCode(
+            return _processRunner.RunAndPropagateExitCode(
                 commandPath,
                 arguments,
                 workingDirectory: Directory.GetCurrentDirectory(),
                 environmentVariables: env
             );
-
-            return exitCode;
         });
     }
 

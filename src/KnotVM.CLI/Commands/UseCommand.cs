@@ -42,17 +42,10 @@ public class UseCommand : Command
     {
         return CommandExecutor.ExecuteWithExitCode(() =>
         {
-            // Verifica che l'installazione esista
-            var installation = _repository.GetByAlias(alias);
-
-            if (installation == null)
-            {
-                throw new KnotVMHintException(
-                    KnotErrorCode.InstallationNotFound,
+            var installation = _repository.GetByAlias(alias) 
+                ?? throw new KnotVMHintException(KnotErrorCode.InstallationNotFound,
                     $"Installazione '{alias}' non trovata",
-                    "Usare 'knot list' per vedere installazioni disponibili"
-                );
-            }
+                    "Usare 'knot list' per vedere installazioni disponibili");
 
             AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)
@@ -61,7 +54,6 @@ public class UseCommand : Command
                 {
                     ctx.Status("Configurazione versione attiva...");
                     _installationManager.UseInstallation(installation.Alias);
-
                     ctx.Status("Sincronizzazione completata");
                 });
 

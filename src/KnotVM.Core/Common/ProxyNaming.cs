@@ -16,9 +16,7 @@ public static class ProxyNaming
     /// </summary>
     public static string BuildIsolatedProxyName(string commandName)
     {
-        if (string.IsNullOrWhiteSpace(commandName))
-            throw new ArgumentException("Command name non può essere vuoto", nameof(commandName));
-
+        ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         return $"{IsolatedPrefix}{commandName}";
     }
 }
