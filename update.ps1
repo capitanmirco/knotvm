@@ -27,7 +27,7 @@ Set-StrictMode -Version Latest
 # CONFIGURAZIONE
 # ============================================================================
 
-$GITHUB_REPO = "mmennonna/knotvm"
+$GITHUB_REPO = "m-lelli/knotvm"
 $CLI_NAME = "knot"
 $VERSION_CHECK_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 

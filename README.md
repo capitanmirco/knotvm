@@ -12,18 +12,31 @@ Gestore versioni Node.js cross-platform in C#/.NET 8, evoluzione di `node-local`
 
 ## Installazione
 
+> **NOTA IMPORTANTE**: Al momento KnotVM non ha release pubbliche su GitHub. È necessario clonare il repository e compilare da sorgenti locali usando il flag `-Dev/--dev`.
+
+### Prerequisiti
+
+- **.NET 8.0 SDK**: Scarica da [https://dot.net](https://dot.net)
+- **Git**: Per clonare il repository
+
 ### Windows (PowerShell)
 
 ```powershell
-# Installazione da release
-.\install.ps1
+# Clona il repository
+git clone https://github.com/m-lelli/knotvm.git
+cd knotvm
 
-# Build da sorgenti locali
+# OBBLIGATORIO: Build da sorgenti locali (nessuna release disponibile)
 .\install.ps1 -Dev
 
 # Reinstallazione forzata
-.\install.ps1 -Force
+.\install.ps1 -Dev -Force
 ```
+
+**Cosa fa il flag `-Dev`?**
+- Compila `KnotVM.CLI` da sorgenti locali usando `dotnet publish`
+- Produce un binario self-contained per la tua architettura (x64/arm64)
+- Copia `knot.exe` in `KNOT_HOME\bin`
 
 `install.ps1` gestisce automaticamente la migrazione legacy da `node-local` (solo Windows):
 
@@ -35,17 +48,25 @@ Gestore versioni Node.js cross-platform in C#/.NET 8, evoluzione di `node-local`
 ### Linux/macOS (Bash)
 
 ```bash
-# Installazione da release
-./install.sh
+# Clona il repository
+git clone https://github.com/m-lelli/knotvm.git
+cd knotvm
 
-# Build da sorgenti locali
+# OBBLIGATORIO: Build da sorgenti locali (nessuna release disponibile)
 ./install.sh --dev
 
 # Reinstallazione forzata
-./install.sh --force
+./install.sh --dev --force
 ```
 
+**Cosa fa il flag `--dev`?**
+- Compila `KnotVM.CLI` da sorgenti locali usando `dotnet publish`
+- Produce un binario self-contained per la tua architettura (x64/arm64) e OS (Linux/macOS)
+- Copia `knot` in `KNOT_HOME/bin`
+
 Su Linux/macOS non viene eseguita migrazione legacy da `node-local` (tool storico Windows-only): l'installazione procede normalmente.
+
+> **Nota**: In futuro saranno disponibili release pre-compilate scaricabili automaticamente senza `-Dev/--dev`. Gli script sono già predisposti per questo scenario.
 
 Dopo l'installazione, riavvia il terminale e verifica:
 
@@ -58,15 +79,21 @@ knot version
 
 ### Aggiornamento
 
+> **NOTA**: Al momento, senza release pubbliche, l'aggiornamento richiede di aggiornare il repository e ricompilare:
+
 ```powershell
 # Windows
-.\update.ps1
-.\update.ps1 -Force
+cd knotvm
+git pull origin develop  # o il branch che stai usando
+.\install.ps1 -Dev -Force
 
 # Linux/macOS
-./update.sh
-./update.sh --force
+cd knotvm
+git pull origin develop  # o il branch che stai usando
+./install.sh --dev --force
 ```
+
+Gli script `update.ps1` e `update.sh` sono progettati per scaricare automaticamente nuove release da GitHub, ma saranno funzionali solo quando verranno pubblicate release ufficiali.
 
 ### Disinstallazione
 

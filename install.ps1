@@ -31,8 +31,9 @@ Set-StrictMode -Version Latest
 # CONFIGURAZIONE
 # ============================================================================
 
-$GITHUB_REPO = "mmennonna/knotvm"
+$GITHUB_REPO = "m-lelli/knotvm"
 $CLI_NAME = "knot"
+$VERSION_CHECK_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 
 # ============================================================================
 # FUNZIONI HELPER
@@ -462,6 +463,43 @@ function Get-ReleaseUrl {
     return "https://github.com/$GITHUB_REPO/releases/latest/download/knot-win-$archSuffix.exe"
 }
 
+function Get-CurrentVersion {
+    param([string]$KnotExe)
+    
+    try {
+        $output = & $KnotExe version 2>&1 | Select-Object -First 1
+        if ($LASTEXITCODE -eq 0 -and $output) {
+            # Estrai versione da output tipo "KnotVM versione 1.0.0"
+            if ($output -match '\d+\.\d+\.\d+') {
+                return $matches[0]
+            }
+        }
+        return "unknown"
+    }
+    catch {
+        return "unknown"
+    }
+}
+
+function Get-LatestVersion {
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        $response = Invoke-RestMethod -Uri $VERSION_CHECK_URL -UseBasicParsing -ErrorAction Stop
+        $ProgressPreference = 'Continue'
+        
+        if ($response.tag_name) {
+            # Rimuovi 'v' prefix se presente
+            return $response.tag_name -replace '^v', ''
+        }
+        
+        return $null
+    }
+    catch {
+        Write-ColorOutput "Impossibile verificare ultima versione: $($_.Exception.Message)" -Level Warning
+        return $null
+    }
+}
+
 # ============================================================================
 # PREFLIGHT CHECKS
 # ============================================================================
@@ -566,10 +604,45 @@ function Install-CliBinary {
         
         # Test esecuzione
         try {
-            $version = & $targetExe version 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-ColorOutput "✓ Installazione esistente funzionante (usa -Force per reinstallare)" -Level Success
-                return $true
+            $currentVersion = Get-CurrentVersion -KnotExe $targetExe
+            if ($currentVersion -ne "unknown") {
+                Write-ColorOutput "✓ Versione installata: $currentVersion" -Level Success
+                
+                # Verifica se c'è una nuova versione disponibile (solo se non in dev mode)
+                if (-not $DevMode) {
+                    Write-ColorOutput "Verifica aggiornamenti disponibili..." -Level Info
+                    $latestVersion = Get-LatestVersion
+                    
+                    if ($latestVersion -and $latestVersion -ne $currentVersion) {
+                        Write-ColorOutput "Nuova versione disponibile: $latestVersion" -Level Warning
+                        Write-Host ""
+                        
+                        if ((Read-Host "Vuoi aggiornare a questa versione? (s/N)") -match '^[sS]$') {
+                            return Update-ExistingInstallation -KnotExe $targetExe -CurrentVersion $currentVersion -LatestVersion $latestVersion
+                        }
+                        else {
+                            Write-ColorOutput "Aggiornamento saltato. Installazione corrente mantenuta." -Level Info
+                            Write-ColorOutput "Hint: Usa 'knot --version' per verificare la versione corrente" -Level Info
+                            Write-ColorOutput "Hint: Esegui '.\update.ps1' in qualsiasi momento per aggiornare" -Level Info
+                            return $true
+                        }
+                    }
+                    elseif ($latestVersion -and $latestVersion -eq $currentVersion) {
+                        Write-ColorOutput "✓ Già all'ultima versione disponibile" -Level Success
+                        Write-ColorOutput "Hint: Usa -Force per reinstallare" -Level Info
+                        return $true
+                    }
+                    else {
+                        Write-ColorOutput "✓ Installazione esistente funzionante" -Level Success
+                        Write-ColorOutput "Hint: Usa -Force per reinstallare" -Level Info
+                        return $true
+                    }
+                }
+                else {
+                    Write-ColorOutput "✓ Installazione esistente funzionante (modalità dev)" -Level Success
+                    Write-ColorOutput "Hint: Usa -Force per reinstallare" -Level Info
+                    return $true
+                }
             }
         }
         catch {
@@ -673,6 +746,128 @@ function Install-FromRelease {
         
         Write-ColorOutput "Download release fallito: $($_.Exception.Message)" -Level Error
         Write-ColorOutput "Hint: Verifica connessione internet o usa modalità -Dev per compilare da sorgenti" -Level Warning
+        return $false
+    }
+}
+
+function Update-ExistingInstallation {
+    param(
+        [string]$KnotExe,
+        [string]$CurrentVersion,
+        [string]$LatestVersion
+    )
+    
+    Write-Host ""
+    Write-ColorOutput "Aggiornamento: $CurrentVersion -> $LatestVersion" -Level Info
+    Write-Host ""
+    
+    # Backup versione corrente
+    $backupPath = "$KnotExe.backup"
+    try {
+        Copy-Item -Path $KnotExe -Destination $backupPath -Force
+        Write-ColorOutput "✓ Backup creato" -Level Info
+    }
+    catch {
+        Write-ColorOutput "Impossibile creare backup: $($_.Exception.Message)" -Level Error
+        Write-ColorOutput "Hint: Chiudi processi che usano knot.exe e riprova" -Level Warning
+        return $false
+    }
+    
+    # Download nuova versione
+    $tempFile = Join-Path $env:TEMP "$CLI_NAME-update.exe"
+    $releaseUrl = Get-ReleaseUrl
+    
+    try {
+        Write-ColorOutput "Download nuova versione..." -Level Info
+        
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $releaseUrl -OutFile $tempFile -UseBasicParsing
+        $ProgressPreference = 'Continue'
+        
+        if (-not (Test-Path $tempFile)) {
+            throw "Download fallito: file non trovato"
+        }
+        
+        # Verifica dimensione
+        $fileInfo = Get-Item $tempFile
+        if ($fileInfo.Length -lt 102400) {
+            throw "Download incompleto: dimensione sospetta"
+        }
+        
+        Write-ColorOutput "✓ Download completato ($('{0:N2}' -f ($fileInfo.Length / 1MB)) MB)" -Level Success
+    }
+    catch {
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        
+        # Ripristina backup
+        if (Test-Path $backupPath) {
+            Copy-Item -Path $backupPath -Destination $KnotExe -Force
+            Remove-Item $backupPath -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-ColorOutput "Download fallito: $($_.Exception.Message)" -Level Error
+        Write-ColorOutput "Hint: Verifica connessione internet e riprova" -Level Warning
+        return $false
+    }
+    
+    # Sostituisci binario
+    try {
+        Write-ColorOutput "Installazione nuova versione..." -Level Info
+        Copy-Item -Path $tempFile -Destination $KnotExe -Force
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        
+        Write-ColorOutput "✓ Binario aggiornato" -Level Success
+    }
+    catch {
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        
+        # Rollback
+        Write-ColorOutput "Errore durante sostituzione, rollback in corso..." -Level Warning
+        if (Test-Path $backupPath) {
+            Copy-Item -Path $backupPath -Destination $KnotExe -Force
+            Remove-Item $backupPath -Force -ErrorAction SilentlyContinue
+            Write-ColorOutput "✓ Rollback completato" -Level Success
+        }
+        
+        Write-ColorOutput "Impossibile sostituire binario: $($_.Exception.Message)" -Level Error
+        Write-ColorOutput "Hint: Chiudi tutti i processi knot.exe e riprova" -Level Warning
+        return $false
+    }
+    
+    # Test nuova versione
+    try {
+        $newVersion = Get-CurrentVersion -KnotExe $KnotExe
+        if ($newVersion -eq "unknown") {
+            throw "Impossibile verificare versione dopo aggiornamento"
+        }
+        
+        # Test comando base
+        & $KnotExe --help | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Comando --help fallito"
+        }
+        
+        Write-ColorOutput "✓ Nuova versione verificata: $newVersion" -Level Success
+        
+        # Rimuovi backup dopo successo
+        Remove-Item $backupPath -Force -ErrorAction SilentlyContinue
+        
+        Write-Host ""
+        Write-ColorOutput "✓ Aggiornamento completato con successo!" -Level Success
+        
+        return $true
+    }
+    catch {
+        # Rollback critico
+        Write-ColorOutput "Nuova versione non funzionante, rollback..." -Level Error
+        if (Test-Path $backupPath) {
+            Copy-Item -Path $backupPath -Destination $KnotExe -Force
+            Remove-Item $backupPath -Force -ErrorAction SilentlyContinue
+            Write-ColorOutput "✓ Rollback completato" -Level Success
+        }
+        
+        Write-ColorOutput "Aggiornamento fallito: $($_.Exception.Message)" -Level Error
+        Write-ColorOutput "Hint: Versione precedente ripristinata" -Level Warning
         return $false
     }
 }

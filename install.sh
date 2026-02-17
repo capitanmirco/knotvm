@@ -20,9 +20,10 @@ set -euo pipefail
 # CONFIGURAZIONE
 # ============================================================================
 
-GITHUB_REPO="mmennonna/knotvm"
+GITHUB_REPO="m-lelli/knotvm"
 CLI_NAME="knot"
 VERSION="latest"
+VERSION_CHECK_URL="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 
 # ============================================================================
 # VARIABILI GLOBALI
@@ -231,6 +232,43 @@ get_release_url() {
     echo "https://github.com/$GITHUB_REPO/releases/latest/download/knot-$os_suffix-$arch"
 }
 
+get_current_version() {
+    local knot_binary="$1"
+    
+    if [ ! -f "$knot_binary" ]; then
+        echo "unknown"
+        return
+    fi
+    
+    local output
+    if output=$("$knot_binary" version 2>&1 | head -n1); then
+        # Estrai versione da output tipo "KnotVM versione 1.0.0"
+        if [[ "$output" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            echo "${BASH_REMATCH[1]}"
+        else
+            echo "unknown"
+        fi
+    else
+        echo "unknown"
+    fi
+}
+
+get_latest_version() {
+    local version=""
+    
+    if command -v curl &>/dev/null; then
+        version=$(curl -fsSL "$VERSION_CHECK_URL" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | sed 's/"tag_name": *"\([^"]*\)"/\1/' | sed 's/^v//')
+    elif command -v wget &>/dev/null; then
+        version=$(wget -qO- "$VERSION_CHECK_URL" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | sed 's/"tag_name": *"\([^"]*\)"/\1/' | sed 's/^v//')
+    fi
+    
+    if [ -z "$version" ]; then
+        echo ""
+    else
+        echo "$version"
+    fi
+}
+
 install_cli_binary() {
     local bin_path="$1"
     local target_binary="$bin_path/$CLI_NAME"
@@ -239,10 +277,47 @@ install_cli_binary() {
     if [ -f "$target_binary" ] && [ $FORCE_INSTALL -eq 0 ]; then
         log_info "$CLI_NAME già presente in $bin_path"
         
-        # Test esecuzione
-        if "$target_binary" version &>/dev/null; then
-            log_success "✓ Installazione esistente funzionante (usa --force per reinstallare)"
-            return 0
+        # Test esecuzione e versione
+        local current_version
+        current_version=$(get_current_version "$target_binary")
+        
+        if [ "$current_version" != "unknown" ]; then
+            log_success "✓ Versione installata: $current_version"
+            
+            # Verifica se c'è una nuova versione disponibile (solo se non in dev mode)
+            if [ $DEV_MODE -eq 0 ]; then
+                log_info "Verifica aggiornamenti disponibili..."
+                local latest_version
+                latest_version=$(get_latest_version)
+                
+                if [ -n "$latest_version" ] && [ "$latest_version" != "$current_version" ]; then
+                    log_warn "Nuova versione disponibile: $latest_version"
+                    echo ""
+                    
+                    read -rp "Vuoi aggiornare a questa versione? (s/N): " response
+                    if [[ "$response" =~ ^[sS]$ ]]; then
+                        update_existing_installation "$target_binary" "$current_version" "$latest_version"
+                        return $?
+                    else
+                        log_info "Aggiornamento saltato. Installazione corrente mantenuta."
+                        log_info "Hint: Usa 'knot --version' per verificare la versione corrente"
+                        log_info "Hint: Esegui './update.sh' in qualsiasi momento per aggiornare"
+                        return 0
+                    fi
+                elif [ -n "$latest_version" ] && [ "$latest_version" = "$current_version" ]; then
+                    log_success "✓ Già all'ultima versione disponibile"
+                    log_info "Hint: Usa --force per reinstallare"
+                    return 0
+                else
+                    log_success "✓ Installazione esistente funzionante"
+                    log_info "Hint: Usa --force per reinstallare"
+                    return 0
+                fi
+            else
+                log_success "✓ Installazione esistente funzionante (modalità dev)"
+                log_info "Hint: Usa --force per reinstallare"
+                return 0
+            fi
         else
             log_warn "Binario esistente non funzionante, procedo con reinstallazione..."
         fi
@@ -382,6 +457,132 @@ install_from_release() {
     chmod +x "$target_path"
     
     log_success "✓ Download completato e binario installato"
+}
+
+update_existing_installation() {
+    local knot_binary="$1"
+    local current_version="$2"
+    local latest_version="$3"
+    
+    echo ""
+    log_info "Aggiornamento: $current_version -> $latest_version"
+    echo ""
+    
+    # Backup versione corrente
+    local backup_path="${knot_binary}.backup"
+    
+    if ! cp "$knot_binary" "$backup_path" 2>/dev/null; then
+        log_error "Impossibile creare backup"
+        log_warn "Hint: Chiudi processi che usano knot e riprova"
+        return 1
+    fi
+    
+    log_info "✓ Backup creato"
+    
+    # Download nuova versione
+    local release_url
+    release_url=$(get_release_url)
+    
+    local temp_file
+    temp_file=$(mktemp)
+    
+    log_info "Download nuova versione..."
+    
+    local download_success=0
+    
+    if command -v curl &>/dev/null; then
+        if curl -fsSL "$release_url" -o "$temp_file"; then
+            download_success=1
+        fi
+    elif command -v wget &>/dev/null; then
+        if wget -q "$release_url" -O "$temp_file"; then
+            download_success=1
+        fi
+    fi
+    
+    if [ $download_success -eq 0 ]; then
+        rm -f "$temp_file"
+        cp "$backup_path" "$knot_binary"
+        rm -f "$backup_path"
+        
+        log_error "Download fallito"
+        log_warn "Hint: Verifica connessione internet e riprova"
+        return 1
+    fi
+    
+    # Verifica dimensione minima
+    local file_size
+    file_size=$(stat -f%z "$temp_file" 2>/dev/null || stat -c%s "$temp_file" 2>/dev/null || echo 0)
+    
+    if [ "$file_size" -lt 102400 ]; then
+        rm -f "$temp_file"
+        cp "$backup_path" "$knot_binary"
+        rm -f "$backup_path"
+        
+        log_error "Download incompleto: dimensione sospetta"
+        return 1
+    fi
+    
+    log_success "✓ Download completato ($(echo "scale=2; $file_size / 1048576" | bc 2>/dev/null || echo "?") MB)"
+    
+    # Sostituisci binario
+    log_info "Installazione nuova versione..."
+    
+    if ! mv "$temp_file" "$knot_binary" 2>/dev/null; then
+        rm -f "$temp_file"
+        cp "$backup_path" "$knot_binary"
+        rm -f "$backup_path"
+        
+        log_error "Impossibile sostituire binario"
+        log_warn "Hint: Chiudi tutti i processi knot e riprova"
+        return 1
+    fi
+    
+    chmod +x "$knot_binary"
+    log_success "✓ Binario aggiornato"
+    
+    # Test nuova versione
+    local new_version
+    new_version=$(get_current_version "$knot_binary")
+    
+    if [ "$new_version" = "unknown" ]; then
+        log_error "Impossibile verificare versione dopo aggiornamento"
+        rollback_installation "$knot_binary" "$backup_path"
+        return 1
+    fi
+    
+    # Test comando base
+    if ! "$knot_binary" --help &>/dev/null; then
+        log_error "Nuova versione non funzionante"
+        rollback_installation "$knot_binary" "$backup_path"
+        return 1
+    fi
+    
+    log_success "✓ Nuova versione verificata: $new_version"
+    
+    # Rimuovi backup
+    rm -f "$backup_path"
+    
+    echo ""
+    log_success "✓ Aggiornamento completato con successo!"
+    
+    return 0
+}
+
+rollback_installation() {
+    local knot_binary="$1"
+    local backup_path="$2"
+    
+    log_warn "Rollback in corso..."
+    
+    if [ -f "$backup_path" ]; then
+        cp "$backup_path" "$knot_binary"
+        chmod +x "$knot_binary"
+        rm -f "$backup_path"
+        log_success "✓ Rollback completato, versione precedente ripristinata"
+    else
+        log_error "Backup non trovato, impossibile rollback"
+    fi
 }
 
 test_installation() {
