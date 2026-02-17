@@ -89,7 +89,7 @@ public class RemoveCommand : Command
         // Conferma se installazione è attiva e force non è specificato
         if (installation.Use && !force)
         {
-            AnsiConsole.MarkupLine($"[yellow]⚠[/] L'installazione '{installation.Alias}' è attualmente attiva");
+            AnsiConsole.MarkupLine($"[yellow][[!]][/] L'installazione '{installation.Alias}' è attualmente attiva");
             
             if (!AnsiConsole.Confirm($"Confermi la rimozione? (usa --force per saltare questa conferma)", false))
             {
@@ -106,7 +106,7 @@ public class RemoveCommand : Command
                 _installationManager.RemoveInstallation(installation.Alias, force);
             });
 
-        AnsiConsole.MarkupLine($"[green]✓[/] Installazione [bold]{installation.Alias}[/] (Node.js {installation.Version}) rimossa con successo");
+        AnsiConsole.MarkupLine($"[green][[OK]][/] Installazione [bold]{installation.Alias}[/] (Node.js {installation.Version}) rimossa con successo");
     }
 
     private int HandleMultipleInstallations(Installation[] installations, bool force)
@@ -114,7 +114,7 @@ public class RemoveCommand : Command
         var version = installations[0].Version;
         
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[yellow]⚠[/] Trovate [bold]{installations.Length}[/] installazioni con Node.js [bold]{version}[/]:");
+        AnsiConsole.MarkupLine($"[yellow][[!]][/] Trovate [bold]{installations.Length}[/] installazioni con Node.js [bold]{version}[/]:");
         AnsiConsole.WriteLine();
 
         // Mostra lista installazioni
@@ -157,7 +157,7 @@ public class RemoveCommand : Command
             var hasActive = installations.Any(i => i.Use);
             if (hasActive && !force)
             {
-                AnsiConsole.MarkupLine("[yellow]⚠[/] Attenzione: alcune installazioni sono attive");
+                AnsiConsole.MarkupLine("[yellow][[!]][/] Attenzione: alcune installazioni sono attive");
                 
                 if (!AnsiConsole.Confirm("Confermi la rimozione di tutte le installazioni?", false))
                 {
@@ -204,12 +204,12 @@ public class RemoveCommand : Command
                         _installationManager.RemoveInstallation(inst.Alias, force);
                     });
 
-                AnsiConsole.MarkupLine($"[green]✓[/] [bold]{inst.Alias}[/] rimossa");
+                AnsiConsole.MarkupLine($"[green][[OK]][/] [bold]{inst.Alias}[/] rimossa");
                 removed++;
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLine($"[red]✗[/] Errore rimozione [bold]{inst.Alias}[/]: {ex.Message}");
+                AnsiConsole.MarkupLine($"[red][[X]][/] Errore rimozione [bold]{inst.Alias}[/]: {ex.Message}");
                 failed++;
             }
         }
@@ -217,11 +217,11 @@ public class RemoveCommand : Command
         AnsiConsole.WriteLine();
         if (failed == 0)
         {
-            AnsiConsole.MarkupLine($"[green]✓[/] Rimosse con successo [bold]{removed}[/] installazioni con Node.js {version}");
+            AnsiConsole.MarkupLine($"[green][[OK]][/] Rimosse con successo [bold]{removed}[/] installazioni con Node.js {version}");
         }
         else
         {
-            AnsiConsole.MarkupLine($"[yellow]⚠[/] Rimosse [bold]{removed}[/] installazioni, [bold]{failed}[/] fallite");
+            AnsiConsole.MarkupLine($"[yellow][[!]][/] Rimosse [bold]{removed}[/] installazioni, [bold]{failed}[/] fallite");
         }
 
         return 0;

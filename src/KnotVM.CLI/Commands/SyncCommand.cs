@@ -58,7 +58,7 @@ public class SyncCommand : Command
             // Verifica se sync è necessaria (se non force)
             if (!force && !_syncService.IsSyncNeeded())
             {
-                AnsiConsole.MarkupLine("[green]✓[/] Proxy già sincronizzati");
+                AnsiConsole.MarkupLine("[green][[OK]][/] Proxy già sincronizzati");
                 return 0;
             }
 
@@ -72,11 +72,11 @@ public class SyncCommand : Command
 
             if (force)
             {
-                AnsiConsole.MarkupLine("[green]✓[/] Tutti i proxy rigenerati con successo");
+                AnsiConsole.MarkupLine("[green][[OK]][/] Tutti i proxy rigenerati con successo");
             }
             else
             {
-                AnsiConsole.MarkupLine("[green]✓[/] Proxy dinamici sincronizzati con successo");
+                AnsiConsole.MarkupLine("[green][[OK]][/] Proxy dinamici sincronizzati con successo");
             }
 
             AnsiConsole.WriteLine();

@@ -65,10 +65,10 @@ public class UseCommand : Command
                     ctx.Status("Sincronizzazione completata");
                 });
 
-            AnsiConsole.MarkupLine($"[green]✓[/] Versione [bold]{installation.Alias}[/] attivata (Node.js {installation.Version})");
+            AnsiConsole.MarkupLine($"[green][[OK]][/] Versione [bold]{installation.Alias}[/] attivata (Node.js {installation.Version})");
             AnsiConsole.WriteLine();
             var nodeProxy = ProxyNaming.BuildIsolatedProxyName("node");
-            AnsiConsole.MarkupLine($"[green]→[/] Usa 'node --version' per verificare (ricorda il prefisso [bold]{ProxyNaming.IsolatedPrefix}[/] per isolated mode)");
+            AnsiConsole.MarkupLine($"[green]->[/] Usa 'node --version' per verificare (ricorda il prefisso [bold]{ProxyNaming.IsolatedPrefix}[/] per isolated mode)");
             AnsiConsole.MarkupLine($"[dim]   Esempio: {nodeProxy} --version[/]");
         });
     }

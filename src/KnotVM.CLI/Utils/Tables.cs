@@ -9,7 +9,7 @@ public static class Tables
     public static Table CreateSpectreTable(string[] headerStringValues)
     {
         var table = new Table();
-        table.Border(TableBorder.SimpleHeavy);
+        table.Border(TableBorder.Rounded);
         foreach (var header in headerStringValues)
         {
             table.AddColumn(new TableColumn($"[bold]{header}[/]").Centered());

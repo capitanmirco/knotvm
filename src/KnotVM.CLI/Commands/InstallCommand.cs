@@ -151,10 +151,10 @@ public class InstallCommand : Command
             }
 
             // Success message
-            AnsiConsole.MarkupLine($"[green]✓[/] Node.js [bold]{result.Version}[/] installato con successo");
+            AnsiConsole.MarkupLine($"[green][[OK]][/] Node.js [bold]{result.Version}[/] installato con successo");
             AnsiConsole.MarkupLine($"[dim]Alias: {result.Alias}[/]");
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine($"[green]→[/] Per attivare questa versione, usa: [bold]knot use {result.Alias}[/]");
+            AnsiConsole.MarkupLine($"[green]->[/] Per attivare questa versione, usa: [bold]knot use {result.Alias}[/]");
         });
     }
 }

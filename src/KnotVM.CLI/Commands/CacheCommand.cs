@@ -110,7 +110,7 @@ public class CacheCommand : Command
 
         AnsiConsole.Write(table);
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[green]→[/] Totale: {files.Length} file, {totalSize.ToHumanReadableSize()}");
+        AnsiConsole.MarkupLine($"[green]->[/] Totale: {files.Length} file, {totalSize.ToHumanReadableSize()}");
     }
 
     private void ExecuteClear()
@@ -138,7 +138,7 @@ public class CacheCommand : Command
                 _cacheService.ClearCache();
             });
 
-        AnsiConsole.MarkupLine("[green]✓[/] Cache svuotata con successo");
+        AnsiConsole.MarkupLine("[green][[OK]][/] Cache svuotata con successo");
         AnsiConsole.MarkupLine($"[dim]Liberati {totalSize.ToHumanReadableSize()}[/]");
     }
 
@@ -163,11 +163,11 @@ public class CacheCommand : Command
 
         if (filesRemoved == 0)
         {
-            AnsiConsole.MarkupLine("[green]✓[/] Nessun file obsoleto trovato");
+            AnsiConsole.MarkupLine("[green][[OK]][/] Nessun file obsoleto trovato");
         }
         else
         {
-            AnsiConsole.MarkupLine($"[green]✓[/] Rimossi {filesRemoved} file obsoleti");
+            AnsiConsole.MarkupLine($"[green][[OK]][/] Rimossi {filesRemoved} file obsoleti");
             AnsiConsole.MarkupLine($"[dim]Liberati {sizeFreed.ToHumanReadableSize()}[/]");
         }
     }

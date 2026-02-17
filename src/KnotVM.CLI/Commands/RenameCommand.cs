@@ -89,7 +89,7 @@ public class RenameCommand : Command
                     _installationManager.RenameInstallation(fromAlias, toAlias);
                 });
 
-            AnsiConsole.MarkupLine($"[green]✓[/] Installazione rinominata da [bold]{fromAlias}[/] a [bold]{toAlias}[/]");
+            AnsiConsole.MarkupLine($"[green][[OK]][/] Installazione rinominata da [bold]{fromAlias}[/] a [bold]{toAlias}[/]");
             
             if (installation.Use)
             {

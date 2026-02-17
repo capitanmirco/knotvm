@@ -144,12 +144,12 @@ public class ListRemoteCommand : Command
         AnsiConsole.WriteLine();
         if (ltsOnly)
         {
-            AnsiConsole.MarkupLine($"[green]→[/] Mostrate {versions.Length} versioni LTS");
+            AnsiConsole.MarkupLine($"[green]->[/] Mostrate {versions.Length} versioni LTS");
         }
         else
         {
             var ltsCount = versions.Count(v => v.Lts != null);
-            AnsiConsole.MarkupLine($"[green]→[/] Mostrate {versions.Length} versioni ([green]{ltsCount} LTS[/], {versions.Length - ltsCount} standard)");
+            AnsiConsole.MarkupLine($"[green]->[/] Mostrate {versions.Length} versioni ([green]{ltsCount} LTS[/], {versions.Length - ltsCount} standard)");
         }
     }
 }
