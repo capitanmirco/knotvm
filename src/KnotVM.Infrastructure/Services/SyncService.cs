@@ -151,7 +151,7 @@ public class SyncService : ISyncService
 
         foreach (var candidate in candidates)
         {
-            if (File.Exists(Path.Combine(installationPath, candidate)))
+            if (_fileSystem.FileExists(Path.Combine(installationPath, candidate)))
             {
                 scriptPath = candidate;
                 return true;
@@ -180,7 +180,7 @@ public class SyncService : ISyncService
                 
                 try
                 {
-                    File.WriteAllText(wrapperPath, wrapperContent, System.Text.Encoding.ASCII);
+                    _fileSystem.WriteAllTextSafe(wrapperPath, wrapperContent);
                 }
                 catch
                 {
@@ -198,13 +198,9 @@ public class SyncService : ISyncService
                 
                 try
                 {
-                    File.WriteAllText(wrapperPath, wrapperContent, System.Text.Encoding.UTF8);
+                    _fileSystem.WriteAllTextSafe(wrapperPath, wrapperContent);
                     // Rendi eseguibile su Unix
-                    if (_platform.GetCurrentOs() != HostOs.Windows)
-                    {
-                        var chmod = System.Diagnostics.Process.Start("chmod", $"+x \"{wrapperPath}\"");
-                        chmod?.WaitForExit();
-                    }
+                    _fileSystem.SetExecutablePermissions(wrapperPath);
                 }
                 catch
                 {

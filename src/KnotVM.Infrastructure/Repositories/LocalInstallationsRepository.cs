@@ -13,15 +13,18 @@ public class LocalInstallationsRepository : IInstallationsRepository
     private readonly Configuration _config;
     private readonly bool _isWindows;
     private readonly IProcessRunner _processRunner;
+    private readonly IFileSystemService _fileSystem;
 
     public LocalInstallationsRepository(
         Configuration config,
         IPlatformService platformService,
-        IProcessRunner processRunner)
+        IProcessRunner processRunner,
+        IFileSystemService fileSystem)
     {
         _config = config;
         _isWindows = platformService.GetCurrentOs() == HostOs.Windows;
         _processRunner = processRunner;
+        _fileSystem = fileSystem;
     }
 
     /// <summary>
@@ -72,12 +75,12 @@ public class LocalInstallationsRepository : IInstallationsRepository
     {
         try
         {
-            if (!File.Exists(_config.SettingsFile))
+            if (!_fileSystem.FileExists(_config.SettingsFile))
             {
                 return null;
             }
             
-            var content = File.ReadAllText(_config.SettingsFile).Trim();
+            var content = _fileSystem.ReadAllTextSafe(_config.SettingsFile).Trim();
             return string.IsNullOrWhiteSpace(content) ? null : content;
         }
         catch
@@ -92,7 +95,7 @@ public class LocalInstallationsRepository : IInstallationsRepository
     private bool IsValidInstallation(string directoryPath)
     {
         var nodeExePath = GetNodeExecutablePath(directoryPath);
-        return File.Exists(nodeExePath);
+        return _fileSystem.FileExists(nodeExePath);
     }
 
     /// <summary>
@@ -141,15 +144,8 @@ public class LocalInstallationsRepository : IInstallationsRepository
 
     public void SetActiveInstallation(string alias)
     {
-        // Scrivi alias in settings.txt
-        try
-        {
-            File.WriteAllText(_config.SettingsFile, alias);
-        }
-        catch
-        {
-            // Ignora errori
-        }
+        // Scrivi alias in settings.txt usando FileSystemService per gestione corretta errori
+        _fileSystem.WriteAllTextSafe(_config.SettingsFile, alias);
     }
 
     public Installation? GetByAlias(string alias)

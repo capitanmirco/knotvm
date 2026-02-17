@@ -121,12 +121,12 @@ public class ProxyGeneratorService : IProxyGeneratorService
             EnsureTemplateDirectoryExists();
 
             var templatePath = Path.Combine(_templateDir, "node-shim.cs.template");
-            if (!File.Exists(templatePath))
+            if (!_fileSystem.FileExists(templatePath))
             {
                 throw new FileNotFoundException($"Template node-shim.cs.template non trovato in {_templateDir}");
             }
 
-            var template = File.ReadAllText(templatePath);
+            var template = _fileSystem.ReadAllTextSafe(templatePath);
 
             var settingsFile = _paths.GetSettingsFilePath();
             var versionsPath = _paths.GetVersionsPath();
@@ -139,7 +139,7 @@ public class ProxyGeneratorService : IProxyGeneratorService
             // Per ora salviamo solo il codice sorgente
             var binDir = _paths.GetBinPath();
             var shimSourcePath = Path.Combine(binDir, "node-shim.cs");
-            File.WriteAllText(shimSourcePath, shimCode, Encoding.UTF8);
+            _fileSystem.WriteAllTextSafe(shimSourcePath, shimCode);
         }
         catch (Exception ex)
         {
@@ -157,18 +157,12 @@ public class ProxyGeneratorService : IProxyGeneratorService
         if (_platform.GetCurrentOs() == HostOs.Windows)
         {
             var cmdPath = Path.Combine(binDir, $"{proxyName}.cmd");
-            if (File.Exists(cmdPath))
-            {
-                File.Delete(cmdPath);
-            }
+            _fileSystem.DeleteFileIfExists(cmdPath);
         }
         else
         {
             var proxyPath = Path.Combine(binDir, proxyName);
-            if (File.Exists(proxyPath))
-            {
-                File.Delete(proxyPath);
-            }
+            _fileSystem.DeleteFileIfExists(proxyPath);
         }
     }
 
@@ -195,16 +189,13 @@ public class ProxyGeneratorService : IProxyGeneratorService
             
             // Rimuovi anche eventuali shim (ignora errori se locked)
             var shimPath = Path.Combine(binDir, "node.exe");
-            if (File.Exists(shimPath))
+            try
             {
-                try
-                {
-                    File.Delete(shimPath);
-                }
-                catch
-                {
-                    // File locked o protetto - ignora
-                }
+                _fileSystem.DeleteFileIfExists(shimPath);
+            }
+            catch
+            {
+                // File locked o protetto - ignora
             }
         }
         else
@@ -232,12 +223,12 @@ public class ProxyGeneratorService : IProxyGeneratorService
     private void GenerateWindowsGenericProxy(string proxyName, string commandName, string commandExe, string binDir)
     {
         var templatePath = Path.Combine(_templateDir, "generic-proxy.cmd.template");
-        if (!File.Exists(templatePath))
+        if (!_fileSystem.FileExists(templatePath))
         {
             throw new FileNotFoundException($"Template generic-proxy.cmd.template non trovato");
         }
 
-        var template = File.ReadAllText(templatePath);
+        var template = _fileSystem.ReadAllTextSafe(templatePath);
         var settingsFile = _paths.GetSettingsFilePath();
         var versionsPath = _paths.GetVersionsPath();
 
@@ -250,18 +241,18 @@ public class ProxyGeneratorService : IProxyGeneratorService
         var proxyPath = Path.Combine(binDir, $"{proxyName}.cmd");
         
         // Windows: encoding ASCII, line ending CRLF (default)
-        File.WriteAllText(proxyPath, proxyContent, Encoding.ASCII);
+        _fileSystem.WriteAllTextSafe(proxyPath, proxyContent);
     }
 
     private void GenerateWindowsPackageManagerProxy(string proxyName, string packageManager, string scriptPath, string binDir)
     {
         var templatePath = Path.Combine(_templateDir, "package-manager.cmd.template");
-        if (!File.Exists(templatePath))
+        if (!_fileSystem.FileExists(templatePath))
         {
             throw new FileNotFoundException($"Template package-manager.cmd.template non trovato");
         }
 
-        var template = File.ReadAllText(templatePath);
+        var template = _fileSystem.ReadAllTextSafe(templatePath);
         var settingsFile = _paths.GetSettingsFilePath();
         var versionsPath = _paths.GetVersionsPath();
 
@@ -272,7 +263,7 @@ public class ProxyGeneratorService : IProxyGeneratorService
             .Replace("{{SCRIPT_PATH}}", scriptPath);
 
         var proxyPath = Path.Combine(binDir, $"{proxyName}.cmd");
-        File.WriteAllText(proxyPath, proxyContent, Encoding.ASCII);
+        _fileSystem.WriteAllTextSafe(proxyPath, proxyContent);
     }
 
     #endregion
@@ -282,11 +273,11 @@ public class ProxyGeneratorService : IProxyGeneratorService
     private void GenerateUnixGenericProxy(string proxyName, string commandName, string commandExe, string binDir)
     {
         var templatePath = Path.Combine(_templateDir, "generic-proxy.bash.template");
-        if (!File.Exists(templatePath))  {
+        if (!_fileSystem.FileExists(templatePath))  {
             throw new FileNotFoundException($"Template generic-proxy.bash.template non trovato");
         }
 
-        var template = File.ReadAllText(templatePath);
+        var template = _fileSystem.ReadAllTextSafe(templatePath);
         var settingsFile = _paths.GetSettingsFilePath();
         var versionsPath = _paths.GetVersionsPath();
 
@@ -308,12 +299,12 @@ public class ProxyGeneratorService : IProxyGeneratorService
     private void GenerateUnixPackageManagerProxy(string proxyName, string packageManager, string scriptPath, string binDir)
     {
         var templatePath = Path.Combine(_templateDir, "package-manager.bash.template");
-        if (!File.Exists(templatePath))
+        if (!_fileSystem.FileExists(templatePath))
         {
             throw new FileNotFoundException($"Template package-manager.bash.template non trovato");
         }
 
-        var template = File.ReadAllText(templatePath);
+        var template = _fileSystem.ReadAllTextSafe(templatePath);
         var settingsFile = _paths.GetSettingsFilePath();
         var versionsPath = _paths.GetVersionsPath();
 

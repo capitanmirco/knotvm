@@ -3,6 +3,7 @@ using KnotVM.Core.Common;
 using KnotVM.Core.Enums;
 using KnotVM.Core.Interfaces;
 using KnotVM.Infrastructure.Repositories;
+using KnotVM.Infrastructure.Services;
 using Moq;
 using Xunit;
 
@@ -57,7 +58,9 @@ public class LocalInstallationsRepositoryTests : IDisposable
             .Callback<string>(path => resolvedNodePath = path)
             .Returns("20.11.1");
 
-        var repository = new LocalInstallationsRepository(config, platformServiceMock.Object, processRunnerMock.Object);
+        var fileSystemService = new FileSystemService(platformServiceMock.Object);
+
+        var repository = new LocalInstallationsRepository(config, platformServiceMock.Object, processRunnerMock.Object, fileSystemService);
 
         var installation = repository.GetByAlias("myalias");
 

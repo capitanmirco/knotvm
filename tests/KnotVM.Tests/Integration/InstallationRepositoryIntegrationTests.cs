@@ -3,6 +3,7 @@ using KnotVM.Core.Common;
 using KnotVM.Core.Enums;
 using KnotVM.Core.Interfaces;
 using KnotVM.Infrastructure.Repositories;
+using KnotVM.Infrastructure.Services;
 using Moq;
 using Xunit;
 
@@ -40,10 +41,13 @@ public class InstallationRepositoryIntegrationTests : IDisposable
 
         _processRunnerMock = new Mock<IProcessRunner>();
 
+        var fileSystemService = new FileSystemService(_platformServiceMock.Object);
+
         _repository = new LocalInstallationsRepository(
             _config,
             _platformServiceMock.Object,
-            _processRunnerMock.Object);
+            _processRunnerMock.Object,
+            fileSystemService);
     }
 
     [Fact]
