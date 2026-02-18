@@ -6,10 +6,10 @@ namespace KnotVM.Core.Interfaces;
 public interface IPathService
 {
     /// <summary>
-    /// Ottiene il path base knot (gestisce KNOT_HOME env var).
-    /// Windows default: %APPDATA%\node-local
-    /// Linux default: $HOME/.local/share/node-local
-    /// macOS default: $HOME/Library/Application Support/node-local
+    /// Ottiene il path base KnotVM (gestisce KNOT_HOME env var).
+    /// Windows default: %APPDATA%\KnotVM (directory "node-local" per compatibilità)
+    /// Linux default: $HOME/.local/share/KnotVM (directory "node-local" per compatibilità)
+    /// macOS default: $HOME/Library/Application Support/KnotVM (directory "node-local" per compatibilità)
     /// </summary>
     string GetBasePath();
 

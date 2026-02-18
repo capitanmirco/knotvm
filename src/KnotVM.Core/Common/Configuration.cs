@@ -30,7 +30,7 @@ public record Configuration(
     public const string KnotHomeEnvVar = "KNOT_HOME";
 
     /// <summary>
-    /// Nome directory default (compatibilità node-local).
+    /// Nome directory default ("node-local" per compatibilità con versione legacy PowerShell).
     /// </summary>
     public const string DefaultDirectoryName = "node-local";
 
@@ -82,19 +82,19 @@ public record Configuration(
         // 2. Default OS-specific
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            // Windows: %APPDATA%\node-local
+            // Windows: %APPDATA%\KnotVM (directory "node-local" per compatibilità)
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             return Path.Combine(appData, DefaultDirectoryName);
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            // Linux: $HOME/.local/share/node-local
+            // Linux: $HOME/.local/share/KnotVM (directory "node-local" per compatibilità)
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             return Path.Combine(home, ".local", "share", DefaultDirectoryName);
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            // macOS: $HOME/Library/Application Support/node-local
+            // macOS: $HOME/Library/Application Support/KnotVM (directory "node-local" per compatibilità)
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             return Path.Combine(home, "Library", "Application Support", DefaultDirectoryName);
         }
@@ -144,7 +144,7 @@ public record Configuration(
     }
 
     /// <summary>
-    /// Crea configurazione per node-local (compatibilità sviluppo Windows).
+    /// Crea configurazione legacy (compatibilità con versione PowerShell node-local solo per sviluppo/test Windows).
     /// DEPRECATED: Usare Create() che gestisce automaticamente OS e KNOT_HOME.
     /// </summary>
     [Obsolete("Usare Configuration.Create() che gestisce OS e KNOT_HOME automaticamente")]
