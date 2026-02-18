@@ -886,15 +886,15 @@ function Test-Installation {
     }
     
     try {
-        # Test esecuzione version
-        $output = & $knotExe version 2>&1
+        # Test esecuzione (senza mostrare output per evitare banner duplicato)
+        $null = & $knotExe --help 2>&1
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -ne 0) {
             throw "Exit code non zero: $exitCode"
         }
         
-        Write-ColorOutput "✓ $CLI_NAME.exe funzionante: $output" -Level Success
+        Write-ColorOutput "✓ $CLI_NAME.exe funzionante" -Level Success
         return $true
     }
     catch {
