@@ -804,9 +804,9 @@ main() {
     echo ""
     
     # Esegue knot version per mostrare il banner
-    knot_exe="$bin_path/$CLI_NAME"
-    if [ -x "$knot_exe" ]; then
-        "$knot_exe" version 2>/dev/null || log_success "=== Installazione completata con successo! ==="
+    knot_binary="$bin_path/$CLI_NAME"
+    if [ -x "$knot_binary" ]; then
+        "$knot_binary" version 2>/dev/null || log_success "=== Installazione completata con successo! ==="
     else
         log_success "=== Installazione completata con successo! ==="
     fi
