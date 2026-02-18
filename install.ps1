@@ -1036,7 +1036,19 @@ function Main {
     
     # Messaggio finale
     Write-Host ""
-    Write-ColorOutput "=== Installazione completata con successo! ===" -Level Success
+    
+    # Esegue knot version per mostrare il banner
+    try {
+        $knotExe = Join-Path $binPath "$CLI_NAME.exe"
+        if (Test-Path $knotExe) {
+            & $knotExe version
+        }
+    }
+    catch {
+        # Fallback se knot version fallisce
+        Write-ColorOutput "=== Installazione completata con successo! ===" -Level Success
+    }
+    
     Write-Host ""
     Write-ColorOutput "Per iniziare:" -Level Info
     Write-ColorOutput "  1. Riavvia il terminale per caricare il nuovo PATH" -Level Info
