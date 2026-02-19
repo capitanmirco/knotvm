@@ -186,6 +186,21 @@ public class SyncService : ISyncService
                 {
                     // Ignora errori su wrapper opzionali
                 }
+                
+                // Git Bash compatibility: crea anche wrapper bash (senza estensione)
+                try
+                {
+                    var bashWrapperPath = Path.Combine(binPath, cmd);
+                    var bashWrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nexec \"{isolatedProxy}.cmd\" \"$@\"\n";
+                    
+                    // Usa encoding UTF-8 senza BOM e line ending Unix (LF)
+                    var utf8NoBom = new System.Text.UTF8Encoding(false);
+                    File.WriteAllText(bashWrapperPath, bashWrapperContent, utf8NoBom);
+                }
+                catch
+                {
+                    // Ignora errori su wrapper opzionali
+                }
             }
         }
         else
