@@ -9,6 +9,7 @@ namespace KnotVM.Infrastructure.Services;
 
 /// <summary>
 /// Implementazione servizio versioni remote da nodejs.org.
+/// Copia locale dell'index salvata in KNOT_HOME/versions-index.json.
 /// </summary>
 public class RemoteVersionService : IRemoteVersionService
 {
@@ -18,7 +19,7 @@ public class RemoteVersionService : IRemoteVersionService
     private readonly IFileSystemService _fileSystem;
     private readonly IPathService _pathService;
     private readonly HttpClient _httpClient;
-    private readonly string _cacheFilePath;
+    private readonly string _indexFilePath;
     private RemoteVersion[]? _memoryCache;
     private DateTime? _memoryCacheTimestamp;
 
@@ -27,7 +28,7 @@ public class RemoteVersionService : IRemoteVersionService
         _fileSystem = fileSystem;
         _pathService = pathService;
         _httpClient = httpClient;
-        _cacheFilePath = Path.Combine(_pathService.GetCachePath(), "versions-index.json");
+        _indexFilePath = Path.Combine(_pathService.GetBasePath(), "versions-index.json");
     }
 
     public async Task<RemoteVersion[]> GetAvailableVersionsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
@@ -40,15 +41,15 @@ public class RemoteVersionService : IRemoteVersionService
                 return _memoryCache;
         }
 
-        // Check disk cache
-        if (!forceRefresh && _fileSystem.FileExists(_cacheFilePath))
+        // Check index file locale
+        if (!forceRefresh && _fileSystem.FileExists(_indexFilePath))
         {
-            var cacheAge = DateTime.UtcNow - _fileSystem.GetFileLastWriteTime(_cacheFilePath).ToUniversalTime();
-            if (cacheAge.TotalMinutes < CacheExpiryMinutes)
+            var indexAge = DateTime.UtcNow - _fileSystem.GetFileLastWriteTime(_indexFilePath).ToUniversalTime();
+            if (indexAge.TotalMinutes < CacheExpiryMinutes)
             {
                 try
                 {
-                    var cachedJson = _fileSystem.ReadAllTextSafe(_cacheFilePath);
+                    var cachedJson = _fileSystem.ReadAllTextSafe(_indexFilePath);
                     var versions = ParseVersionsJson(cachedJson);
                     _memoryCache = versions;
                     _memoryCacheTimestamp = DateTime.UtcNow;
@@ -56,7 +57,7 @@ public class RemoteVersionService : IRemoteVersionService
                 }
                 catch
                 {
-                    // Cache corrotto, procedi con fetch remoto
+                    // Index corrotto, procedi con fetch remoto
                 }
             }
         }
@@ -67,9 +68,9 @@ public class RemoteVersionService : IRemoteVersionService
             var json = await _httpClient.GetStringAsync(NodeDistIndexUrl, cancellationToken);
             var versions = ParseVersionsJson(json);
 
-            // Salva cache su disco
-            _fileSystem.EnsureDirectoryExists(_pathService.GetCachePath());
-            _fileSystem.WriteAllTextSafe(_cacheFilePath, json);
+            // Salva index locale in KNOT_HOME
+            _fileSystem.EnsureDirectoryExists(_pathService.GetBasePath());
+            _fileSystem.WriteAllTextSafe(_indexFilePath, json);
 
             _memoryCache = versions;
             _memoryCacheTimestamp = DateTime.UtcNow;
@@ -139,7 +140,7 @@ public class RemoteVersionService : IRemoteVersionService
     {
         _memoryCache = null;
         _memoryCacheTimestamp = null;
-        _fileSystem.DeleteFileIfExists(_cacheFilePath);
+        _fileSystem.DeleteFileIfExists(_indexFilePath);
     }
 
     private RemoteVersion[] ParseVersionsJson(string json)

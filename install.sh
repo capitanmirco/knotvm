@@ -633,10 +633,9 @@ test_installation() {
             21
     fi
     
-    # Test esecuzione
-    local output
-    if output=$("$knot_binary" version 2>&1); then
-        log_success "✓ $CLI_NAME funzionante: $output"
+    # Test esecuzione (senza mostrare output per evitare banner duplicato)
+    if "$knot_binary" --help &>/dev/null; then
+        log_success "✓ $CLI_NAME funzionante"
     else
         exit_with_error \
             "KNOT-GEN-001" \
@@ -803,7 +802,15 @@ main() {
     
     # Messaggio finale
     echo ""
-    log_success "=== Installazione completata con successo! ==="
+    
+    # Esegue knot version per mostrare il banner
+    knot_binary="$bin_path/$CLI_NAME"
+    if [ -x "$knot_binary" ]; then
+        "$knot_binary" version 2>/dev/null || log_success "=== Installazione completata con successo! ==="
+    else
+        log_success "=== Installazione completata con successo! ==="
+    fi
+    
     echo ""
     log_info "Per iniziare:"
     log_info "  1. Riavvia il terminale (o esegui: source ~/.bashrc o source ~/.zshrc)"

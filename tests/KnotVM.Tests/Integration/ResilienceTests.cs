@@ -33,14 +33,14 @@ public class ResilienceTests
     public async Task RemoteVersionService_OnNetworkFailure_UsesCachedData()
     {
         // Arrange
-        var cachePath = Path.Combine("c:\\knot", "cache");
-        var cacheFilePath = Path.Combine(cachePath, "versions-index.json");
+        var basePath = Path.Combine("c:\\knot", "knotvm");
+        var indexFilePath = Path.Combine(basePath, "versions-index.json");
         var cachedJson = @"[{""version"":""v20.11.0"",""lts"":""Iron"",""date"":""2024-01-01"",""files"":[""win-x64""]}]";
 
-        _pathServiceMock.Setup(x => x.GetCachePath()).Returns(cachePath);
-        _fileSystemMock.Setup(x => x.FileExists(cacheFilePath)).Returns(true);
-        _fileSystemMock.Setup(x => x.ReadAllTextSafe(cacheFilePath)).Returns(cachedJson);
-        _fileSystemMock.Setup(x => x.GetFileLastWriteTime(cacheFilePath)).Returns(DateTime.UtcNow.AddMinutes(-30));
+        _pathServiceMock.Setup(x => x.GetBasePath()).Returns(basePath);
+        _fileSystemMock.Setup(x => x.FileExists(indexFilePath)).Returns(true);
+        _fileSystemMock.Setup(x => x.ReadAllTextSafe(indexFilePath)).Returns(cachedJson);
+        _fileSystemMock.Setup(x => x.GetFileLastWriteTime(indexFilePath)).Returns(DateTime.UtcNow.AddMinutes(-30));
 
         _httpMessageHandlerMock
             .Protected()
@@ -64,14 +64,14 @@ public class ResilienceTests
     public async Task RemoteVersionService_WithCorruptedCache_FetchesFresh()
     {
         // Arrange
-        var cachePath = Path.Combine("c:\\knot", "cache");
-        var cacheFilePath = Path.Combine(cachePath, "versions-index.json");
+        var basePath = Path.Combine("c:\\knot", "knotvm");
+        var indexFilePath = Path.Combine(basePath, "versions-index.json");
         var corruptedJson = "{invalid json}";
         var validJson = @"[{""version"":""v20.11.0"",""lts"":""Iron"",""date"":""2024-01-01"",""files"":[""win-x64""]}]";
 
-        _pathServiceMock.Setup(x => x.GetCachePath()).Returns(cachePath);
-        _fileSystemMock.Setup(x => x.FileExists(cacheFilePath)).Returns(true);
-        _fileSystemMock.Setup(x => x.ReadAllTextSafe(cacheFilePath)).Returns(corruptedJson);
+        _pathServiceMock.Setup(x => x.GetBasePath()).Returns(basePath);
+        _fileSystemMock.Setup(x => x.FileExists(indexFilePath)).Returns(true);
+        _fileSystemMock.Setup(x => x.ReadAllTextSafe(indexFilePath)).Returns(corruptedJson);
 
         _httpMessageHandlerMock
             .Protected()
@@ -93,7 +93,7 @@ public class ResilienceTests
         // Assert - Should fetch fresh data and cache it
         result.Should().NotBeEmpty();
         result[0].Version.Should().Be("20.11.0");
-        _fileSystemMock.Verify(x => x.WriteAllTextSafe(cacheFilePath, validJson), Times.Once);
+        _fileSystemMock.Verify(x => x.WriteAllTextSafe(indexFilePath, validJson), Times.Once);
     }
 
     [Fact]
@@ -185,8 +185,8 @@ public class ResilienceTests
     public async Task RemoteVersionService_OnTimeout_HandleGracefully()
     {
         // Arrange
-        var cachePath = Path.Combine("c:\\knot", "cache");
-        _pathServiceMock.Setup(x => x.GetCachePath()).Returns(cachePath);
+        var basePath = Path.Combine("c:\\knot", "knotvm");
+        _pathServiceMock.Setup(x => x.GetBasePath()).Returns(basePath);
         _fileSystemMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(false);
         
         _httpMessageHandlerMock

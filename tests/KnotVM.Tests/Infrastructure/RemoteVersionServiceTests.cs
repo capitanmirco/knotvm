@@ -17,8 +17,8 @@ public class RemoteVersionServiceTests
     private readonly Mock<HttpMessageHandler> _httpMessageHandlerMock;
     private readonly HttpClient _httpClient;
     private readonly RemoteVersionService _sut;
-    private readonly string _cachePath = Path.Combine("/test", "cache");
-    private readonly string _cacheFilePath;
+    private readonly string _basePath = Path.Combine("/test", "knotvm");
+    private readonly string _indexFilePath;
 
     public RemoteVersionServiceTests()
     {
@@ -27,8 +27,8 @@ public class RemoteVersionServiceTests
         _httpMessageHandlerMock = new Mock<HttpMessageHandler>();
         _httpClient = new HttpClient(_httpMessageHandlerMock.Object);
 
-        _cacheFilePath = Path.Combine(_cachePath, "versions-index.json");
-        _pathServiceMock.Setup(x => x.GetCachePath()).Returns(_cachePath);
+        _indexFilePath = Path.Combine(_basePath, "versions-index.json");
+        _pathServiceMock.Setup(x => x.GetBasePath()).Returns(_basePath);
         _fileSystemMock.Setup(x => x.FileExists(It.IsAny<string>())).Returns(false);
 
         _sut = new RemoteVersionService(_fileSystemMock.Object, _pathServiceMock.Object, _httpClient);
@@ -66,7 +66,7 @@ public class RemoteVersionServiceTests
         result[0].Lts.Should().Be("Iron");
         result[1].Version.Should().Be("18.19.0");
         result[1].Lts.Should().Be("Hydrogen");
-        _fileSystemMock.Verify(x => x.WriteAllTextSafe(_cacheFilePath, json), Times.Once);
+        _fileSystemMock.Verify(x => x.WriteAllTextSafe(_indexFilePath, json), Times.Once);
     }
 
     [Fact]
@@ -95,9 +95,9 @@ public class RemoteVersionServiceTests
         var oldJson = @"[{""version"":""v18.0.0"",""lts"":false,""date"":""2023-01-01"",""files"":[""win-x64""]}]";
         var newJson = @"[{""version"":""v20.0.0"",""lts"":""Iron"",""date"":""2024-01-01"",""files"":[""win-x64""]}]";
 
-        _fileSystemMock.Setup(x => x.FileExists(_cacheFilePath)).Returns(true);
-        _fileSystemMock.Setup(x => x.ReadAllTextSafe(_cacheFilePath)).Returns(oldJson);
-        _fileSystemMock.Setup(x => x.GetFileLastWriteTime(_cacheFilePath)).Returns(DateTime.UtcNow.AddHours(-2));
+        _fileSystemMock.Setup(x => x.FileExists(_indexFilePath)).Returns(true);
+        _fileSystemMock.Setup(x => x.ReadAllTextSafe(_indexFilePath)).Returns(oldJson);
+        _fileSystemMock.Setup(x => x.GetFileLastWriteTime(_indexFilePath)).Returns(DateTime.UtcNow.AddHours(-2));
 
         _httpMessageHandlerMock
             .Protected()
@@ -377,7 +377,7 @@ public class RemoteVersionServiceTests
         _sut.ClearCache();
 
         // Assert
-        _fileSystemMock.Verify(x => x.DeleteFileIfExists(_cacheFilePath), Times.Once);
+        _fileSystemMock.Verify(x => x.DeleteFileIfExists(_indexFilePath), Times.Once);
     }
 
     #endregion

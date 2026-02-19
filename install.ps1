@@ -886,15 +886,15 @@ function Test-Installation {
     }
     
     try {
-        # Test esecuzione version
-        $output = & $knotExe version 2>&1
+        # Test esecuzione (senza mostrare output per evitare banner duplicato)
+        $null = & $knotExe --help 2>&1
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -ne 0) {
             throw "Exit code non zero: $exitCode"
         }
         
-        Write-ColorOutput "✓ $CLI_NAME.exe funzionante: $output" -Level Success
+        Write-ColorOutput "✓ $CLI_NAME.exe funzionante" -Level Success
         return $true
     }
     catch {
@@ -1036,7 +1036,19 @@ function Main {
     
     # Messaggio finale
     Write-Host ""
-    Write-ColorOutput "=== Installazione completata con successo! ===" -Level Success
+    
+    # Esegue knot version per mostrare il banner
+    try {
+        $knotExe = Join-Path $binPath "$CLI_NAME.exe"
+        if (Test-Path $knotExe) {
+            & $knotExe version
+        }
+    }
+    catch {
+        # Fallback se knot version fallisce
+        Write-ColorOutput "=== Installazione completata con successo! ===" -Level Success
+    }
+    
     Write-Host ""
     Write-ColorOutput "Per iniziare:" -Level Info
     Write-ColorOutput "  1. Riavvia il terminale per caricare il nuovo PATH" -Level Info

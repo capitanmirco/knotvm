@@ -163,6 +163,10 @@ public class ProxyGeneratorService : IProxyGeneratorService
         {
             var cmdPath = Path.Combine(binDir, $"{proxyName}.cmd");
             _fileSystem.DeleteFileIfExists(cmdPath);
+            
+            // Rimuovi anche il wrapper bash se esiste
+            var wrapperPath = Path.Combine(binDir, proxyName);
+            _fileSystem.DeleteFileIfExists(wrapperPath);
         }
         else
         {
@@ -189,6 +193,21 @@ public class ProxyGeneratorService : IProxyGeneratorService
                 catch
                 {
                     // Ignora errori su singoli file (potrebbero essere locked)
+                }
+            }
+            
+            // Rimuovi wrapper bash per Git compatibility (senza estensione)
+            foreach (var command in UnixWrapperCommands)
+            {
+                var wrapperName = ProxyNaming.BuildIsolatedProxyName(command);
+                var wrapperPath = Path.Combine(binDir, wrapperName);
+                try
+                {
+                    _fileSystem.DeleteFileIfExists(wrapperPath);
+                }
+                catch
+                {
+                    // Ignora errori
                 }
             }
             
@@ -250,6 +269,13 @@ public class ProxyGeneratorService : IProxyGeneratorService
         
         // Windows: encoding ASCII, line ending CRLF (default)
         _fileSystem.WriteAllTextSafe(proxyPath, proxyContent);
+        
+        // Git Bash compatibility: crea wrapper bash per comandi principali
+        // Git usa /bin/sh per eseguire hook, che non può eseguire .cmd
+        if (UnixWrapperCommands.Contains(commandName))
+        {
+            GenerateGitBashWrapper(proxyName, binDir);
+        }
     }
 
     private void GenerateWindowsPackageManagerProxy(string proxyName, string packageManager, string scriptPath, string binDir)
@@ -272,6 +298,12 @@ public class ProxyGeneratorService : IProxyGeneratorService
 
         var proxyPath = Path.Combine(binDir, $"{proxyName}.cmd");
         _fileSystem.WriteAllTextSafe(proxyPath, proxyContent);
+        
+        // Git Bash compatibility: crea wrapper bash per package managers principali
+        if (UnixWrapperCommands.Contains(packageManager))
+        {
+            GenerateGitBashWrapper(proxyName, binDir);
+        }
     }
 
     #endregion
@@ -331,6 +363,35 @@ public class ProxyGeneratorService : IProxyGeneratorService
     #endregion
 
     #region Helper Methods
+
+    /// <summary>
+    /// Genera un wrapper bash (senza estensione) per Git Bash compatibility su Windows.
+    /// Git utilizza /bin/sh per eseguire gli hook, che non può eseguire file .cmd.
+    /// </summary>
+    private void GenerateGitBashWrapper(string proxyName, string binDir)
+    {
+        // Wrapper minimale che redirige a .cmd
+        // IMPORTANTE: usa LF (Unix line endings), non CRLF
+        var wrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nexec \"{proxyName}.cmd\" \"$@\"\n";
+        
+        // Nome senza estensione (es: "nlocal-node" invece di "nlocal-node.cmd")
+        var wrapperPath = Path.Combine(binDir, proxyName);
+        
+        // Usa encoding UTF-8 senza BOM e line ending Unix (LF)
+        var utf8NoBom = new System.Text.UTF8Encoding(false);
+        var contentWithUnixLineEndings = wrapperContent.Replace("\r\n", "\n");
+        File.WriteAllText(wrapperPath, contentWithUnixLineEndings, utf8NoBom);
+        
+        // Nota: permessi eseguibili non necessari su Windows, ma non fa male settarli
+        try
+        {
+            _fileSystem.SetExecutablePermissions(wrapperPath);
+        }
+        catch
+        {
+            // Ignora errori su Windows (SetExecutablePermissions potrebbe non funzionare)
+        }
+    }
 
     private static string EscapeCSharpString(string str)
     {
