@@ -4,10 +4,13 @@ using KnotVM.CLI.Commands;
 using KnotVM.Core.Interfaces;
 using KnotVM.Core.Models;
 using Moq;
+using Spectre.Console;
+using Spectre.Console.Testing;
 using Xunit;
 
 namespace KnotVM.Tests.CLI;
 
+[Collection("Sequential")]
 public class RenameCommandTests
 {
     [Fact]
@@ -23,6 +26,11 @@ public class RenameCommandTests
         var command = new RenameCommand(installManagerMock.Object, repositoryMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(command);
+
+        // Configure AnsiConsole for testing
+        var testConsole = new TestConsole();
+        testConsole.Profile.Capabilities.Interactive = false;
+        AnsiConsole.Console = testConsole;
 
         // Act
         var exitCode = rootCommand.Parse(["rename", "--from", "old-node", "--to", "new-node"]).Invoke();
