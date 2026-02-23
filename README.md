@@ -49,7 +49,7 @@ cd knotvm
 
 ```bash
 # Clone the repository
-git clone https://github.com/m-lelli/knotvm.git
+git clone https://github.com/capitanmirco/knotvm.git
 cd knotvm
 
 # REQUIRED: Build from local sources (no release available)
