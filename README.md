@@ -113,8 +113,9 @@ Gli script `update.ps1` e `update.sh` sono progettati per scaricare automaticame
 
 - `knot list [--path|-p]`
 - `knot list-remote [--lts] [--all] [--limit <n>]`
-- `knot install <version> [--alias <name>] [--latest] [--latest-lts]`
-- `knot use <installation>`
+- `knot install <version> [--alias <name>] [--latest] [--latest-lts] [--from-file]`
+- `knot use <installation> [--auto]`
+- `knot auto-detect [--directory <path>]` — rileva versione da `.nvmrc`, `.node-version` o `package.json`
 - `knot remove <installation> [--force]`
 - `knot rename --from <old> --to <new>`
 - `knot run "<command>" --with-version <installation>`
@@ -122,6 +123,36 @@ Gli script `update.ps1` e `update.sh` sono progettati per scaricare automaticame
 - `knot cache --list | --clear | --clean`
 - `knot version`
 - `knot completion <shell>` — genera script tab-completion (`bash`, `zsh`, `powershell`, `fish`)
+
+## Risolutore Intelligente di Versioni
+
+`knot install` e `knot use` accettano notazioni abbreviate senza richiedere versioni semver complete:
+
+```bash
+knot install 20          # risolve a 20.x.x più recente
+knot install lts         # ultima LTS corrente
+knot install hydrogen    # 18.x.x (codename LTS)
+knot install iron        # 20.x.x (codename LTS)
+knot install jod         # 22.x.x (codename LTS)
+knot install latest      # ultima versione stabile
+knot install 20.11.0     # versione esatta (passthrough)
+```
+
+## Auto-Rilevamento Versione Progetto
+
+```bash
+# Usa la versione indicata in .nvmrc / .node-version / package.json
+knot use --auto
+
+# Installa la versione indicata nel file di configurazione
+knot install --from-file
+
+# Rileva esplicitamente e attiva (con supporto directory custom)
+knot auto-detect
+knot auto-detect --directory /path/to/project
+```
+
+Ordine di precedenza file: `.nvmrc` > `.node-version` > `package.json` (`engines.node`).
 
 ## Shell Completion
 
@@ -221,7 +252,7 @@ dotnet test --no-build --nologo -v minimal
 dotnet run --project src/KnotVM.CLI -- --help
 ```
 
-Stato validato corrente: `98/98` test passati.
+Stato validato corrente: `339/340` test passati (1 regressione pre-esistente in analisi).
 
 ## Architettura
 
@@ -257,7 +288,7 @@ Shell:
 - CMD (Windows)
 - Bash (Linux/macOS)
 - Zsh (Linux/macOS)
-- Fish (Linux/macOS) — solo completion (non usata come shell per proxy)
+- Fish (Linux/macOS) — completions supportate (proxy first-class rinviato a V2)
 
 ## Documentazione
 
