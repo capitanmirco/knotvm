@@ -54,6 +54,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProxyGeneratorService, ProxyGeneratorService>();
         services.AddSingleton<ISyncService, SyncService>();
         
+        // Version file detection
+        services.AddSingleton<IVersionFileDetector, VersionFileDetectorService>();
+        
         // Management services
         services.AddSingleton<IInstallationManager, InstallationManager>();
         services.AddSingleton<ICacheService, CacheService>();
@@ -79,6 +82,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<RunCommand>();
         services.AddSingleton<CacheCommand>();
         services.AddSingleton<VersionCommand>();
+        services.AddSingleton<AutoDetectCommand>();
         
         return services;
     }

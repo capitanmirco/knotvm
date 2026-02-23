@@ -27,7 +27,8 @@ class Program
             serviceProvider.GetRequiredService<RenameCommand>(),
             serviceProvider.GetRequiredService<RunCommand>(),
             serviceProvider.GetRequiredService<CacheCommand>(),
-            serviceProvider.GetRequiredService<VersionCommand>()
+            serviceProvider.GetRequiredService<VersionCommand>(),
+            serviceProvider.GetRequiredService<AutoDetectCommand>()
         })
         {
             rootCommand.Subcommands.Add(command);

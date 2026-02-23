@@ -19,11 +19,12 @@ public class UseCommandTests
         // Arrange
         var installManagerMock = new Mock<IInstallationManager>();
         var repositoryMock = new Mock<IInstallationsRepository>();
+        var detectorMock = new Mock<IVersionFileDetector>();
         
         var installation = new Installation("test-node", "20.11.0", "/test/versions/test-node", Use: false);
         repositoryMock.Setup(x => x.GetByAlias("test-node")).Returns(installation);
 
-        var command = new UseCommand(installManagerMock.Object, repositoryMock.Object);
+        var command = new UseCommand(installManagerMock.Object, repositoryMock.Object, detectorMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(command);
 

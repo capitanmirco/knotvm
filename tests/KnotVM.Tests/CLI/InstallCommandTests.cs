@@ -19,6 +19,7 @@ public class InstallCommandTests
         // Arrange
         var installServiceMock = new Mock<IInstallationService>();
         var installManagerMock = new Mock<IInstallationManager>();
+        var detectorMock = new Mock<IVersionFileDetector>();
         
         var expectedResult = new InstallationPrepareResult(
             Success: true,
@@ -36,7 +37,7 @@ public class InstallCommandTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
-        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object);
+        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object, detectorMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(command);
 
@@ -61,6 +62,7 @@ public class InstallCommandTests
         // Arrange
         var installServiceMock = new Mock<IInstallationService>();
         var installManagerMock = new Mock<IInstallationManager>();
+        var detectorMock = new Mock<IVersionFileDetector>();
         
         var expectedResult = new InstallationPrepareResult(
             Success: true,
@@ -78,7 +80,7 @@ public class InstallCommandTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
-        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object);
+        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object, detectorMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(command);
 

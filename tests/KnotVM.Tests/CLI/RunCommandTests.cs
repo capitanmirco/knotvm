@@ -48,7 +48,10 @@ public class RunCommandTests : IDisposable
         var platformServiceMock = new Mock<IPlatformService>();
         platformServiceMock.Setup(x => x.GetCurrentOs()).Returns(HostOs.Windows);
 
-        var runCommand = new RunCommand(repositoryMock.Object, processRunnerMock.Object, platformServiceMock.Object);
+        var detectorMock = new Mock<IVersionFileDetector>();
+        var installServiceMock = new Mock<IInstallationService>();
+
+        var runCommand = new RunCommand(repositoryMock.Object, processRunnerMock.Object, platformServiceMock.Object, detectorMock.Object, installServiceMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(runCommand);
 

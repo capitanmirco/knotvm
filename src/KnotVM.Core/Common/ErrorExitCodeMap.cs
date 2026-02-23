@@ -43,6 +43,10 @@ public static class ErrorExitCodeMap
         // Concurrency (60-69)
         { KnotErrorCode.LockFailed, 60 },
 
+        // Version File (70-79)
+        { KnotErrorCode.VersionFileNotFound, 70 },
+        { KnotErrorCode.InvalidVersionFormat, 71 },
+
         // Generico (90-99)
         { KnotErrorCode.UnexpectedError, 99 }
     };

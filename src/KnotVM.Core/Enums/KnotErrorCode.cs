@@ -131,6 +131,20 @@ public enum KnotErrorCode
     /// </summary>
     LockFailed = 6001,
 
+    // Version File (70-79)
+
+    /// <summary>
+    /// KNOT-VF-001: Nessun file di configurazione versione trovato.
+    /// Exit code: 70
+    /// </summary>
+    VersionFileNotFound = 7001,
+
+    /// <summary>
+    /// KNOT-VF-002: Formato versione non valido nel file di configurazione.
+    /// Exit code: 71
+    /// </summary>
+    InvalidVersionFormat = 7002,
+
     // Generico (90-99)
     
     /// <summary>

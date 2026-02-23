@@ -16,16 +16,22 @@ public class InstallCommand : Command
 {
     private readonly IInstallationService _installationService;
     private readonly IInstallationManager _installationManager;
+    private readonly IVersionFileDetector _detector;
     private readonly Argument<string?> _versionArgument;
     private readonly Option<string?> _aliasOption;
     private readonly Option<bool> _latestOption;
     private readonly Option<bool> _latestLtsOption;
+    private readonly Option<bool> _fromFileOption;
 
-    public InstallCommand(IInstallationService installationService, IInstallationManager installationManager)
+    public InstallCommand(
+        IInstallationService installationService,
+        IInstallationManager installationManager,
+        IVersionFileDetector detector)
         : base("install", "Installa una versione di Node.js")
     {
         _installationService = installationService;
         _installationManager = installationManager;
+        _detector = detector;
 
         // Argument per versione
         _versionArgument = new Argument<string?>(name: "version")
@@ -50,10 +56,16 @@ public class InstallCommand : Command
             Description = "Installa l'ultima versione LTS disponibile"
         };
 
+        _fromFileOption = new Option<bool>(name: "--from-file")
+        {
+            Description = "Installa la versione specificata nel file di configurazione progetto (.nvmrc, .node-version, package.json)"
+        };
+
         this.Add(_versionArgument);
         this.Add(_aliasOption);
         this.Add(_latestOption);
         this.Add(_latestLtsOption);
+        this.Add(_fromFileOption);
 
         // Handler
         this.SetAction(async (context) =>
@@ -62,21 +74,38 @@ public class InstallCommand : Command
             var alias = context.GetValue(_aliasOption);
             var latest = context.GetValue(_latestOption);
             var latestLts = context.GetValue(_latestLtsOption);
+            var fromFile = context.GetValue(_fromFileOption);
 
-            return await ExecuteAsync(version, alias, latest, latestLts);
+            return await ExecuteAsync(version, alias, latest, latestLts, fromFile);
         });
     }
 
-    private async Task<int> ExecuteAsync(string? version, string? customAlias, bool latest, bool latestLts)
+    private async Task<int> ExecuteAsync(string? version, string? customAlias, bool latest, bool latestLts, bool fromFile)
     {
         return await CommandExecutor.ExecuteWithExitCodeAsync(async () =>
         {
             using var cancellationScope = new ConsoleCancellationScope();
 
             CommandValidation.EnsureExactlyOne(
-                "Specificare una versione, --latest o --latest-lts",
-                "Specificare solo una tra: <version>, --latest o --latest-lts",
-                !string.IsNullOrEmpty(version), latest, latestLts);
+                "Specificare una versione, --latest, --latest-lts o --from-file",
+                "Specificare solo una tra: <version>, --latest, --latest-lts o --from-file",
+                !string.IsNullOrEmpty(version), latest, latestLts, fromFile);
+
+            if (fromFile)
+            {
+                var detectedVersion = await _detector.DetectVersionAsync(Directory.GetCurrentDirectory()).ConfigureAwait(false);
+
+                if (detectedVersion == null)
+                {
+                    throw new KnotVMHintException(
+                        KnotErrorCode.VersionFileNotFound,
+                        "Nessun file di configurazione versione trovato",
+                        "File supportati: .nvmrc, .node-version, package.json (campo engines.node)");
+                }
+
+                AnsiConsole.MarkupLine($"[dim]Versione rilevata: [/][cyan]{Markup.Escape(detectedVersion)}[/]");
+                version = detectedVersion;
+            }
 
             string versionPattern = (latest, latestLts, version) switch
             {
@@ -122,10 +151,10 @@ public class InstallCommand : Command
             }
 
             // Success message
-            AnsiConsole.MarkupLine($"[green][[OK]][/] Node.js [bold]{result.Version}[/] installato con successo");
-            AnsiConsole.MarkupLine($"[dim]Alias: {result.Alias}[/]");
+            AnsiConsole.MarkupLine($"[green][[OK]][/] Node.js [bold]{Markup.Escape(result.Version)}[/] installato con successo");
+            AnsiConsole.MarkupLine($"[dim]Alias: {Markup.Escape(result.Alias)}[/]");
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine($"[green]->[/] Per attivare questa versione, usa: [bold]knot use {result.Alias}[/]");
+            AnsiConsole.MarkupLine($"[green]->[/] Per attivare questa versione, usa: [bold]knot use {Markup.Escape(result.Alias)}[/]");
         });
     }
 }
