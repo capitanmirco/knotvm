@@ -145,6 +145,14 @@ public enum KnotErrorCode
     /// </summary>
     InvalidVersionFormat = 7002,
 
+    // Input/Argomenti (80-89)
+
+    /// <summary>
+    /// KNOT-ARG-001: Argomento non valido o non supportato.
+    /// Exit code: 80
+    /// </summary>
+    InvalidArgument = 8001,
+
     // Generico (90-99)
     
     /// <summary>

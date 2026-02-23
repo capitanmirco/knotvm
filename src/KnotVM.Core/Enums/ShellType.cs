@@ -28,5 +28,10 @@ public enum ShellType
     /// <summary>
     /// Zsh (Linux/macOS).
     /// </summary>
-    Zsh = 4
+    Zsh = 4,
+
+    /// <summary>
+    /// Fish (Linux/macOS).
+    /// </summary>
+    Fish = 5
 }

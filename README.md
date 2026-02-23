@@ -121,6 +121,73 @@ Gli script `update.ps1` e `update.sh` sono progettati per scaricare automaticame
 - `knot sync [--force]`
 - `knot cache --list | --clear | --clean`
 - `knot version`
+- `knot completion <shell>` — genera script tab-completion (`bash`, `zsh`, `powershell`, `fish`)
+
+## Shell Completion
+
+KnotVM supporta tab-completion per Bash, Zsh, PowerShell e Fish.
+
+### PowerShell (Windows / Linux / macOS)
+
+```powershell
+# Applica al profilo corrente (permanente, richiede riavvio del terminale)
+knot completion powershell >> $PROFILE
+
+# Crea il profilo se non esiste, poi applica
+New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+knot completion powershell >> $PROFILE
+
+# Solo per la sessione corrente
+knot completion powershell | Invoke-Expression
+```
+
+### Bash (Linux / macOS)
+
+```bash
+# Applica solo per l'utente corrente (permanente)
+mkdir -p ~/.bash_completion.d
+knot completion bash > ~/.bash_completion.d/knot
+echo 'source ~/.bash_completion.d/knot' >> ~/.bashrc
+
+# Per tutte le sessioni del sistema (richiede sudo)
+knot completion bash | sudo tee /etc/bash_completion.d/knot
+
+# Solo per la sessione corrente
+source <(knot completion bash)
+```
+
+### Zsh (Linux / macOS)
+
+```bash
+# Applica per l'utente corrente (permanente)
+mkdir -p ~/.zsh/completions
+knot completion zsh > ~/.zsh/completions/_knot
+
+# Aggiungere a ~/.zshrc (se non già presente):
+echo 'fpath=(~/.zsh/completions $fpath)\nautoload -Uz compinit && compinit' >> ~/.zshrc
+
+# Solo per la sessione corrente
+source <(knot completion zsh)
+```
+
+### Fish (Linux / macOS)
+
+```bash
+# Applica per l'utente corrente (permanente)
+mkdir -p ~/.config/fish/completions
+knot completion fish > ~/.config/fish/completions/knot.fish
+# Fish ricarica automaticamente le completion alla prossima sessione
+```
+
+Dopo aver applicato il completion, riavviare il terminale (o ricaricare il profilo) e provare:
+
+```bash
+knot <TAB>           # mostra tutti i comandi
+knot use <TAB>       # mostra gli alias installati
+knot install <TAB>   # mostra le versioni suggerite
+```
+
+---
 
 ## Percorsi Dati
 
@@ -186,10 +253,11 @@ OS:
 
 Shell:
 
-- PowerShell (Windows)
+- PowerShell (Windows / Linux / macOS)
 - CMD (Windows)
 - Bash (Linux/macOS)
 - Zsh (Linux/macOS)
+- Fish (Linux/macOS) — solo completion (non usata come shell per proxy)
 
 ## Documentazione
 

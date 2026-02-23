@@ -28,7 +28,8 @@ class Program
             serviceProvider.GetRequiredService<RunCommand>(),
             serviceProvider.GetRequiredService<CacheCommand>(),
             serviceProvider.GetRequiredService<VersionCommand>(),
-            serviceProvider.GetRequiredService<AutoDetectCommand>()
+            serviceProvider.GetRequiredService<AutoDetectCommand>(),
+            serviceProvider.GetRequiredService<CompletionCommand>()
         })
         {
             rootCommand.Subcommands.Add(command);

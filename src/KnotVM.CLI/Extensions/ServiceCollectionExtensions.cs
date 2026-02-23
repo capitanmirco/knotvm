@@ -60,6 +60,7 @@ public static class ServiceCollectionExtensions
         // Management services
         services.AddSingleton<IInstallationManager, InstallationManager>();
         services.AddSingleton<ICacheService, CacheService>();
+        services.AddSingleton<ICompletionGenerator, CompletionGeneratorService>();
         
         // Repository
         services.AddSingleton<IInstallationsRepository, LocalInstallationsRepository>();
@@ -83,6 +84,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<CacheCommand>();
         services.AddSingleton<VersionCommand>();
         services.AddSingleton<AutoDetectCommand>();
+        services.AddSingleton<CompletionCommand>();
         
         return services;
     }

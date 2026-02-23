@@ -47,6 +47,9 @@ public static class ErrorExitCodeMap
         { KnotErrorCode.VersionFileNotFound, 70 },
         { KnotErrorCode.InvalidVersionFormat, 71 },
 
+        // Input/Argomenti (80-89)
+        { KnotErrorCode.InvalidArgument, 80 },
+
         // Generico (90-99)
         { KnotErrorCode.UnexpectedError, 99 }
     };
@@ -109,6 +112,9 @@ public static class ErrorExitCodeMap
             KnotErrorCode.ProxyGenerationFailed => "KNOT-PROXY-001",
             KnotErrorCode.SyncFailed => "KNOT-SYNC-001",
             KnotErrorCode.LockFailed => "KNOT-LOCK-001",
+            KnotErrorCode.VersionFileNotFound => "KNOT-VF-001",
+            KnotErrorCode.InvalidVersionFormat => "KNOT-VF-002",
+            KnotErrorCode.InvalidArgument => "KNOT-ARG-001",
             KnotErrorCode.UnexpectedError => "KNOT-GEN-001",
             _ => "KNOT-UNKNOWN"
         };
