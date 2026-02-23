@@ -3,6 +3,7 @@ using KnotVM.Core.Common;
 using KnotVM.Core.Interfaces;
 using KnotVM.Infrastructure.Repositories;
 using KnotVM.Infrastructure.Services;
+using KnotVM.Infrastructure.Services.VersionResolution;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnotVM.CLI.Extensions;
@@ -64,7 +65,16 @@ public static class ServiceCollectionExtensions
         
         // Repository
         services.AddSingleton<IInstallationsRepository, LocalInstallationsRepository>();
-        
+
+        // Version resolution strategies (ordine determina priorità di matching)
+        services.AddSingleton<IVersionResolutionStrategy, ExactVersionStrategy>();  // 1. Semver esatto
+        services.AddSingleton<IVersionResolutionStrategy, AliasStrategy>();          // 2. Alias installato
+        services.AddSingleton<IVersionResolutionStrategy, MajorVersionStrategy>();   // 3. Versione maggiore
+        services.AddSingleton<IVersionResolutionStrategy, LtsVersionStrategy>();     // 4. Keyword LTS
+        services.AddSingleton<IVersionResolutionStrategy, KeywordStrategy>();        // 5. latest/current
+        services.AddSingleton<IVersionResolutionStrategy, CodenameStrategy>();       // 6. Codename LTS
+        services.AddSingleton<IVersionResolver, VersionResolverService>();
+
         return services;
     }
     

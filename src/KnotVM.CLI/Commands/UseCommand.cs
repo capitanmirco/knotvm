@@ -16,18 +16,21 @@ public class UseCommand : Command
     private readonly IInstallationManager _installationManager;
     private readonly IInstallationsRepository _repository;
     private readonly IVersionFileDetector _detector;
+    private readonly IVersionResolver _versionResolver;
     private readonly Argument<string?> _installationArgument;
     private readonly Option<bool> _autoOption;
 
     public UseCommand(
         IInstallationManager installationManager,
         IInstallationsRepository repository,
-        IVersionFileDetector detector)
+        IVersionFileDetector detector,
+        IVersionResolver versionResolver)
         : base("use", "Attiva una versione di Node.js installata")
     {
         _installationManager = installationManager;
         _repository = repository;
         _detector = detector;
+        _versionResolver = versionResolver;
 
         _installationArgument = new Argument<string?>(name: "installation")
         {
@@ -89,10 +92,33 @@ public class UseCommand : Command
                 alias = detected.Alias;
             }
 
-            var installation = _repository.GetByAlias(alias!)
-                ?? throw new KnotVMHintException(KnotErrorCode.InstallationNotFound,
+            var installation = _repository.GetByAlias(alias!);
+
+            if (installation == null)
+            {
+                // Prova risoluzione versione: consente 'knot use 20.11.0', 'knot use lts', 'knot use 20'
+                try
+                {
+                    var resolvedVersion = await _versionResolver.ResolveVersionAsync(alias!)
+                        .ConfigureAwait(false);
+
+                    installation = _repository.GetByVersion(resolvedVersion);
+
+                    if (installation != null && !alias!.Equals(resolvedVersion, StringComparison.OrdinalIgnoreCase))
+                        AnsiConsole.MarkupLine($"[dim]Versione risolta: [/][cyan]{Markup.Escape(resolvedVersion)}[/]");
+                }
+                catch (KnotVMException)
+                {
+                    // Risoluzione fallita: mantieni il messaggio errore originale basato sull'alias
+                }
+            }
+
+            if (installation == null)
+            {
+                throw new KnotVMHintException(KnotErrorCode.InstallationNotFound,
                     $"Installazione '{alias}' non trovata",
                     "Usare 'knot list' per vedere installazioni disponibili");
+            }
 
             AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)

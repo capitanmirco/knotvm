@@ -17,6 +17,7 @@ public class InstallCommand : Command
     private readonly IInstallationService _installationService;
     private readonly IInstallationManager _installationManager;
     private readonly IVersionFileDetector _detector;
+    private readonly IVersionResolver _versionResolver;
     private readonly Argument<string?> _versionArgument;
     private readonly Option<string?> _aliasOption;
     private readonly Option<bool> _latestOption;
@@ -26,12 +27,14 @@ public class InstallCommand : Command
     public InstallCommand(
         IInstallationService installationService,
         IInstallationManager installationManager,
-        IVersionFileDetector detector)
+        IVersionFileDetector detector,
+        IVersionResolver versionResolver)
         : base("install", "Installa una versione di Node.js")
     {
         _installationService = installationService;
         _installationManager = installationManager;
         _detector = detector;
+        _versionResolver = versionResolver;
 
         // Argument per versione
         _versionArgument = new Argument<string?>(name: "version")
@@ -118,6 +121,13 @@ public class InstallCommand : Command
             if (customAlias != null)
                 _installationManager.ValidateAliasOrThrow(customAlias);
 
+            // Risolvi la versione abbreviata a semver completo prima di installare
+            var resolvedVersion = await _versionResolver.ResolveVersionAsync(versionPattern, cancellationScope.Token)
+                .ConfigureAwait(false);
+
+            if (!_versionResolver.IsExactVersion(versionPattern))
+                AnsiConsole.MarkupLine($"[dim]Versione risolta: [/][cyan]{Markup.Escape(resolvedVersion)}[/]");
+
             InstallationPrepareResult? result = null;
 
             await AnsiConsole.Status()
@@ -133,7 +143,7 @@ public class InstallCommand : Command
                     });
 
                     result = await _installationService.InstallAsync(
-                        versionPattern, customAlias, forceReinstall: false,
+                        resolvedVersion, customAlias, forceReinstall: false,
                         progressCallback: progress, cancellationToken: cancellationScope.Token);
                 });
 

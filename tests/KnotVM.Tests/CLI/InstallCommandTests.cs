@@ -20,6 +20,14 @@ public class InstallCommandTests
         var installServiceMock = new Mock<IInstallationService>();
         var installManagerMock = new Mock<IInstallationManager>();
         var detectorMock = new Mock<IVersionFileDetector>();
+        var versionResolverMock = new Mock<IVersionResolver>();
+
+        versionResolverMock
+            .Setup(x => x.ResolveVersionAsync("20.11.0", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("20.11.0");
+        versionResolverMock
+            .Setup(x => x.IsExactVersion("20.11.0"))
+            .Returns(true);
         
         var expectedResult = new InstallationPrepareResult(
             Success: true,
@@ -37,7 +45,7 @@ public class InstallCommandTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
-        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object, detectorMock.Object);
+        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object, detectorMock.Object, versionResolverMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(command);
 
@@ -63,6 +71,15 @@ public class InstallCommandTests
         var installServiceMock = new Mock<IInstallationService>();
         var installManagerMock = new Mock<IInstallationManager>();
         var detectorMock = new Mock<IVersionFileDetector>();
+        var versionResolverMock = new Mock<IVersionResolver>();
+
+        // Resolver maps "latest" → "21.0.0" (exact resolved version)
+        versionResolverMock
+            .Setup(x => x.ResolveVersionAsync("latest", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("21.0.0");
+        versionResolverMock
+            .Setup(x => x.IsExactVersion("latest"))
+            .Returns(false);
         
         var expectedResult = new InstallationPrepareResult(
             Success: true,
@@ -71,16 +88,17 @@ public class InstallCommandTests
             InstallationPath: "/test/versions/21.0.0"
         );
 
+        // InstallAsync now receives the resolved version ("21.0.0"), not the original pattern ("latest")
         installServiceMock
             .Setup(x => x.InstallAsync(
-                "latest",
+                "21.0.0",
                 null,
                 false,
                 It.IsAny<IProgress<DownloadProgress>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
-        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object, detectorMock.Object);
+        var command = new InstallCommand(installServiceMock.Object, installManagerMock.Object, detectorMock.Object, versionResolverMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(command);
 
@@ -89,8 +107,11 @@ public class InstallCommandTests
 
         // Assert
         exitCode.Should().Be(0);
+        versionResolverMock.Verify(
+            x => x.ResolveVersionAsync("latest", It.IsAny<CancellationToken>()),
+            Times.Once);
         installServiceMock.Verify(
-            x => x.InstallAsync("latest", null, false, It.IsAny<IProgress<DownloadProgress>>(), It.IsAny<CancellationToken>()),
+            x => x.InstallAsync("21.0.0", null, false, It.IsAny<IProgress<DownloadProgress>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 }
