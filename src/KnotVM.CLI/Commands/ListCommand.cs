@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Linq;
+using KnotVM.CLI.Utils;
 using KnotVM.Core.Interfaces;
 using KnotVM.Core.Models;
 using Spectre.Console;
@@ -29,33 +30,34 @@ public class ListCommand : Command
         this.SetAction((p) => Execute(p.GetValue(_pathOption)));
     }
 
-    private void Execute(bool showPath)
+    private int Execute(bool showPath)
     {
-        var installations = _repository.GetAll();
-
-        if (installations.Length == 0)
+        return CommandExecutor.ExecuteWithExitCode(() =>
         {
-            PrintNoInstallationsMessage();
-            return;
-        }
+            var installations = _repository.GetAll();
 
-        var table = CreateListTable(showPath);
-        AddListRows(installations, table, showPath);
+            if (installations.Length == 0)
+            {
+                PrintNoInstallationsMessage();
+                return 0;
+            }
 
-        AnsiConsole.Write(table);
+            var table = CreateListTable(showPath);
+            AddListRows(installations, table, showPath);
 
-        PrintActualUsedMessage(installations);
+            AnsiConsole.Write(table);
+
+            PrintActualUsedMessage(installations);
+
+            return 0;
+        });
     }
 
     private static Table CreateListTable(bool showPath)
     {
         var table = Utils.Tables.CreateSpectreTable(["Alias", "Versione Node.js", "Attiva"]);
-
         if (showPath)
-        {
             Utils.Tables.AddHeaderColumn(table, "Path");
-        }
-
         return table;
     }
 
@@ -64,15 +66,11 @@ public class ListCommand : Command
         foreach (var installation in installations)
         {
             bool isActive = installation.Use;
-            string[] values = [installation.Alias, installation.Version, isActive ? "✓" : ""];
-            if (showPath)
-            {
-                values = [.. values, installation.Path];
-            }
-            Utils.Tables.AddContentRow(
-                    table,
-                    values, v => isActive ? $"[green]{v}[/]" : $"[dim]{v}[/]"
-                );
+            string[] values = showPath 
+                ? [installation.Alias, installation.Version, isActive ? "Sì" : "No", installation.Path]
+                : [installation.Alias, installation.Version, isActive ? "Sì" : "No"];
+            
+            Utils.Tables.AddContentRow(table, values, v => isActive ? $"[green]{v}[/]" : $"[dim]{v}[/]");
         }
     }
 
@@ -88,7 +86,7 @@ public class ListCommand : Command
         if (activeInstallation != null)
         {
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine($"[green]→[/] Versione attiva: [bold]{activeInstallation.Alias}[/] (Node.js {activeInstallation.Version})");
+            AnsiConsole.MarkupLine($"[green]*[/] Versione attiva: [bold]{activeInstallation.Alias}[/] (Node.js {activeInstallation.Version})");
         }
         else
         {

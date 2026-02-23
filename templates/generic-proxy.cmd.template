@@ -6,7 +6,7 @@ set "VERSIONS_PATH={{VERSIONS_PATH}}"
 
 if not exist "%SETTINGS_FILE%" (
     echo Errore: Nessuna versione di Node.js selezionata.
-    echo Usa 'node-local use ^<version^>' per selezionare una versione.
+    echo Usa 'knot use ^<alias^>' per selezionare una versione.
     exit /b 1
 )
 
@@ -15,7 +15,7 @@ set /p CURRENT_VERSION=<"%SETTINGS_FILE%"
 
 if "%CURRENT_VERSION%"=="" (
     echo Errore: Nessuna versione di Node.js selezionata.
-    echo Usa 'node-local use ^<version^>' per selezionare una versione.
+    echo Usa 'knot use ^<alias^>' per selezionare una versione.
     exit /b 1
 )
 
@@ -25,7 +25,7 @@ set {{COMMAND_NAME}}_EXE=%VERSIONS_PATH%\%CURRENT_VERSION%\{{COMMAND_EXE}}
 if not exist "%{{COMMAND_NAME}}_EXE%" (
             echo Errore: {{COMMAND_NAME}} versione %CURRENT_VERSION% non trovato.
             echo Path: %{{COMMAND_NAME}}_EXE%
-            echo Usa 'node-local list' per vedere le versioni disponibili.
+            echo Usa 'knot list' per vedere le versioni disponibili.
             exit /b 1
 )
 

@@ -1,8 +1,6 @@
 using System.CommandLine;
 using KnotVM.CLI.Commands;
-using KnotVM.Core.Common;
-using KnotVM.Core.Interfaces;
-using KnotVM.Infrastructure.Repositories;
+using KnotVM.CLI.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KnotVM.CLI;
@@ -11,27 +9,32 @@ class Program
 {
     static int Main(string[] args)
     {
-        // Setup DI container
         var services = new ServiceCollection();
-        
-        // Registra Configuration (singleton)
-        services.AddSingleton(Configuration.Instance);
-        
-        // Registra repository
-        services.AddSingleton<IInstallationsRepository, LocalInstallationsRepository>();
-        
-        // Registra comandi
-        services.AddSingleton<ListCommand>();
+        services.AddKnotVMServices();
+        services.AddKnotVMCommands();
         
         var serviceProvider = services.BuildServiceProvider();
-        
-        // Configurazione root command
-        var rootCommand = new RootCommand("knot - Gestore versioni Node.js per Windows");
+        var rootCommand = new RootCommand("knot - Gestore versioni Node.js cross-platform");
 
-        // Aggiungi comandi (risolvi dal DI container)
-        rootCommand.Subcommands.Add(serviceProvider.GetRequiredService<ListCommand>());
+        foreach (var command in new Command[]
+        {
+            serviceProvider.GetRequiredService<ListCommand>(),
+            serviceProvider.GetRequiredService<ListRemoteCommand>(),
+            serviceProvider.GetRequiredService<InstallCommand>(),
+            serviceProvider.GetRequiredService<UseCommand>(),
+            serviceProvider.GetRequiredService<SyncCommand>(),
+            serviceProvider.GetRequiredService<RemoveCommand>(),
+            serviceProvider.GetRequiredService<RenameCommand>(),
+            serviceProvider.GetRequiredService<RunCommand>(),
+            serviceProvider.GetRequiredService<CacheCommand>(),
+            serviceProvider.GetRequiredService<VersionCommand>(),
+            serviceProvider.GetRequiredService<AutoDetectCommand>(),
+            serviceProvider.GetRequiredService<CompletionCommand>()
+        })
+        {
+            rootCommand.Subcommands.Add(command);
+        }
 
-        // Esegui
         return rootCommand.Parse(args).Invoke();
     }
 }

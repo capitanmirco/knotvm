@@ -18,7 +18,7 @@ namespace NodeLocalShim
                 if (!File.Exists(settingsFile))
                 {
                     Console.Error.WriteLine("Errore: Nessuna versione di Node.js selezionata.");
-                    Console.Error.WriteLine("Usa 'node-local use <version>' per selezionare una versione.");
+                    Console.Error.WriteLine("Usa 'knot use <alias>' per selezionare una versione.");
                     return 1;
                 }
                 
@@ -27,7 +27,7 @@ namespace NodeLocalShim
                 if (string.IsNullOrWhiteSpace(currentVersion))
                 {
                     Console.Error.WriteLine("Errore: Nessuna versione di Node.js selezionata.");
-                    Console.Error.WriteLine("Usa 'node-local use <version>' per selezionare una versione.");
+                    Console.Error.WriteLine("Usa 'knot use <alias>' per selezionare una versione.");
                     return 1;
                 }
                 
@@ -37,7 +37,7 @@ namespace NodeLocalShim
                 {
                     Console.Error.WriteLine("Errore: " + targetExe + " versione " + currentVersion + " non trovato.");
                     Console.Error.WriteLine("Path: " + commandPath);
-                    Console.Error.WriteLine("Usa 'node-local list' per vedere le versioni disponibili.");
+                    Console.Error.WriteLine("Usa 'knot list' per vedere le versioni disponibili.");
                     return 1;
                 }
                 

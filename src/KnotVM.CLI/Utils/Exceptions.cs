@@ -14,7 +14,7 @@ public static class Exceptions
     /// <param name="exception">L'eccezione da stampare.</param>
     public static void PrintKnotHintException(KnotVMHintException exception)
     {
-        AnsiConsole.MarkupLine($"[red]✗ Errore:[/] {exception.Message}");
+        AnsiConsole.MarkupLine($"[red][[X]] Errore:[/] {exception.Message}");
         AnsiConsole.MarkupLine($"[dim]{exception.Hint}[/]");
     }
 }

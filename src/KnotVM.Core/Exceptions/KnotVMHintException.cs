@@ -1,23 +1,35 @@
+using KnotVM.Core.Enums;
+
 namespace KnotVM.Core.Exceptions;
 
 /// <summary>
-/// Eccezione base per errori KnotVM con suggerimento per l'utente.
+/// Eccezione per errori KnotVM con suggerimento operativo per l'utente.
+/// Formato standard: "[CodeString]: [Message]\nHint: [Hint]"
 /// </summary>
 public class KnotVMHintException : KnotVMException
 {
     /// <summary>
-    /// Hint per l'utente su come risolvere il problema.
+    /// Hint operativo per l'utente su come risolvere il problema.
     /// </summary>
     public string Hint { get; }
 
-    public KnotVMHintException(string message, string hint) : base(message)
+    public KnotVMHintException(KnotErrorCode errorCode, string message, string hint)
+        : base(errorCode, message)
     {
         Hint = hint;
     }
 
-    public KnotVMHintException(string message, string hint, Exception innerException)
-        : base(message, innerException)
+    public KnotVMHintException(KnotErrorCode errorCode, string message, string hint, Exception innerException)
+        : base(errorCode, message, innerException)
     {
         Hint = hint;
+    }
+
+    /// <summary>
+    /// Ottiene il messaggio formattato completo con codice errore e hint.
+    /// </summary>
+    public string GetFormattedMessage()
+    {
+        return $"{CodeString}: {Message}\nHint: {Hint}";
     }
 }
