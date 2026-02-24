@@ -76,7 +76,7 @@ public class CompletionGeneratorService(
         var aliasesStr = string.Join(" ", aliases);
         var versionsStr = string.Join(" ", versions);
 
-        return $$"""
+        var bashScript = $$"""
         # Bash completion for knot
         # Aggiungere a ~/.bashrc:
         #   source <(knot completion bash)
@@ -186,6 +186,9 @@ public class CompletionGeneratorService(
 
         complete -F _knot_completion knot
         """;
+        
+        // Normalizza line endings da CRLF a LF per compatibilità con bash su Unix/macOS
+        return bashScript.Replace("\r\n", "\n");
     }
 
     private async Task<string> GenerateZshCompletionAsync()
@@ -197,7 +200,7 @@ public class CompletionGeneratorService(
         var versionsZsh = string.Join(" ", versions.Select(v => $"'{v}'"));
         var versionsFlat = string.Join(" ", versions);
 
-        return $$"""
+        var script = $$"""
         #compdef knot
         # Zsh completion for knot
         #
@@ -323,6 +326,9 @@ public class CompletionGeneratorService(
             add-zsh-hook precmd _knot_register_deferred 2>/dev/null || compdef _knot knot 2>/dev/null || true
         fi
         """;
+        
+        // Normalizza line endings da CRLF a LF per compatibilità con zsh su Unix/macOS
+        return script.Replace("\r\n", "\n");
     }
 
     private async Task<string> GeneratePowerShellCompletionAsync()
@@ -440,7 +446,7 @@ public class CompletionGeneratorService(
 
         const string allSubcmds = "list list-remote install use remove rename run sync cache auto-detect doctor version completion";
 
-        return $$"""
+        var fishScript = $$"""
         # Fish completion for knot
         # Installazione:
         #   knot completion fish > ~/.config/fish/completions/knot.fish
@@ -514,5 +520,8 @@ public class CompletionGeneratorService(
         # Completamento versioni per 'install' (posizionale)
         {{versionCompletions}}
         """;
+        
+        // Normalizza line endings da CRLF a LF per compatibilità con fish su Unix/macOS
+        return fishScript.Replace("\r\n", "\n");
     }
 }
