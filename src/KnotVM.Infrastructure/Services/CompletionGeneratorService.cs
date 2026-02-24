@@ -305,12 +305,23 @@ public class CompletionGeneratorService(
             esac
         }
 
-        _knot "$@"
-
-        # Registra il completamento quando il file viene 'source'-ato direttamente.
-        # Il tag #compdef funziona solo con autoload via fpath; questa riga copre
-        # il caso 'source <(knot completion zsh)' in ~/.zshrc.
-        compdef _knot knot 2>/dev/null || true
+        # --- Registrazione ---
+        # 'compdef' registra _knot quando il file viene source-ato direttamente
+        # (es. source <(knot completion zsh) in ~/.zshrc).
+        # Il tag '#compdef knot' in cima gestisce invece il caricamento via fpath/autoload.
+        # NON richiamare _knot qui: _arguments è disponibile solo durante un evento
+        # di completamento, non al momento del source.
+        if (( $+functions[compdef] )); then
+            compdef _knot knot
+        else
+            # compinit non ancora caricato: ritarda la registrazione al primo compinit
+            autoload -Uz add-zsh-hook 2>/dev/null
+            function _knot_register_deferred() {
+                compdef _knot knot
+                add-zsh-hook -d precmd _knot_register_deferred
+            }
+            add-zsh-hook precmd _knot_register_deferred 2>/dev/null || compdef _knot knot 2>/dev/null || true
+        fi
         """;
     }
 
