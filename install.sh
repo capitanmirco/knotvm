@@ -721,6 +721,53 @@ add_to_shell_path() {
     return 1
 }
 
+setup_shell_completion() {
+    local shell_name
+    shell_name=$(basename "$SHELL")
+
+    local rc_files
+    rc_files=$(get_shell_rc_files)
+
+    if [ -z "$rc_files" ]; then
+        log_warn "Nessun file RC shell trovato per setup completamento automatico"
+        return 1
+    fi
+
+    local comp_marker_start="# >>> KnotVM Completion >>>"
+    local comp_marker_end="# <<< KnotVM Completion <<<"
+
+    local completion_line
+    case "$shell_name" in
+        zsh)
+            completion_line='source <(knot completion zsh) 2>/dev/null || true'
+            ;;
+        bash|*)
+            completion_line='source <(knot completion bash) 2>/dev/null || true'
+            ;;
+    esac
+
+    while IFS= read -r rc_file; do
+        [ -z "$rc_file" ] && continue
+
+        if grep -Fq "$comp_marker_start" "$rc_file" 2>/dev/null; then
+            log_info "Completion marker già presente in $rc_file (idempotente)"
+            continue
+        fi
+
+        {
+            echo ""
+            echo "$comp_marker_start"
+            echo "# KnotVM shell completion (managed by installer)"
+            echo "$completion_line"
+            echo "$comp_marker_end"
+        } >> "$rc_file"
+
+        log_success "✓ Completamento shell configurato in $rc_file"
+    done <<< "$rc_files"
+
+    return 0
+}
+
 # ============================================================================
 # ARGUMENT PARSING
 # ============================================================================
@@ -799,7 +846,10 @@ main() {
     if add_to_shell_path "$bin_path"; then
         path_updated=1
     fi
-    
+
+    # Configura completamento shell
+    setup_shell_completion
+
     # Messaggio finale
     echo ""
     
@@ -816,6 +866,8 @@ main() {
     log_info "  1. Riavvia il terminale (o esegui: source ~/.bashrc o source ~/.zshrc)"
     log_info "  2. Esegui: knot --help"
     log_info "  3. Installa Node.js: knot install --latest-lts"
+    log_info "  4. Il completamento Tab è già configurato (riavvio terminale richiesto)"
+    log_info "     Se non funziona su zsh, aggiungi prima di source: autoload -Uz compinit && compinit"
     echo ""
     
     if [ $path_updated -eq 1 ]; then
