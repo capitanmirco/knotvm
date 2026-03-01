@@ -232,7 +232,7 @@ AnsiConsole.Write(panel);
 
 ---
 
-## 3. `knot doctor`
+## 3. `knot doctor` ✅ IMPLEMENTATA
 
 ### Descrizione
 
@@ -505,7 +505,7 @@ quando Fish è rilevato.
 |---|---------|-------------|----------------|
 | 1 | `knot pin` | Bassa | Alto — uso quotidiano |
 | 2 | `knot info` | Bassa | Medio — troubleshooting |
-| 3 | `knot doctor` | Media | Alto — onboarding e CI |
+| 3 | `knot doctor` ✅ | Media | Alto — onboarding e CI |
 | 4 | Alpine/musl | Media | Medio — target specifico |
 | 5 | `--default` | Bassa | Medio — CI/automazione |
 | 6 | Fish proxy | Media | Basso — nicchia |
