@@ -102,13 +102,32 @@ public class CacheService : ICacheService
 
     public bool ExistsInCache(string fileName)
     {
+        ValidateCacheFileName(fileName);
         var filePath = Path.Combine(_cachePath, fileName);
         return File.Exists(filePath);
     }
 
     public string? GetCachedFilePath(string fileName)
     {
+        ValidateCacheFileName(fileName);
         var filePath = Path.Combine(_cachePath, fileName);
         return File.Exists(filePath) ? filePath : null;
+    }
+
+    /// <summary>
+    /// Verifica che il fileName non contenga componenti di path (es. "../") che
+    /// potrebbero consentire l'accesso a file fuori dalla cache directory (path traversal).
+    /// </summary>
+    private static void ValidateCacheFileName(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            throw new ArgumentException("Il nome file non può essere vuoto", nameof(fileName));
+
+        // Path.GetFileName restituisce solo il componente finale; se diverso dall'input
+        // significa che fileName contiene separatori di directory.
+        if (Path.GetFileName(fileName) != fileName)
+            throw new ArgumentException(
+                $"Nome file non valido: '{fileName}'. Il nome non deve contenere separatori di directory.",
+                nameof(fileName));
     }
 }

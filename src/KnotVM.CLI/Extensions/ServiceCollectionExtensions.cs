@@ -66,6 +66,9 @@ public static class ServiceCollectionExtensions
         // Repository
         services.AddSingleton<IInstallationsRepository, LocalInstallationsRepository>();
 
+        // Doctor/diagnostics
+        services.AddSingleton<IDoctorService, DoctorService>();
+
         // Version resolution strategies (ordine determina priorità di matching)
         services.AddSingleton<IVersionResolutionStrategy, ExactVersionStrategy>();  // 1. Semver esatto
         services.AddSingleton<IVersionResolutionStrategy, AliasStrategy>();          // 2. Alias installato
@@ -95,6 +98,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<VersionCommand>();
         services.AddSingleton<AutoDetectCommand>();
         services.AddSingleton<CompletionCommand>();
+        services.AddSingleton<DoctorCommand>();
         
         return services;
     }

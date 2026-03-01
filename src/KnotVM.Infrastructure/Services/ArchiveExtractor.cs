@@ -108,9 +108,9 @@ public class ArchiveExtractor : IArchiveExtractor
 
         if (archivePath.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
         {
-            // Usa tar -tzf per listare contenuto
-            var result = await _processRunner.RunAsync("tar", $"-tzf \"{archivePath}\"");
-            
+            // Usa ArgumentList per evitare command injection su archivePath
+            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-z", "-f", archivePath });
+
             if (result.ExitCode != 0)
                 throw new IOException($"Errore listare tar.gz: {result.StandardError}");
 
@@ -122,8 +122,8 @@ public class ArchiveExtractor : IArchiveExtractor
 
         if (archivePath.EndsWith(".tar.xz", StringComparison.OrdinalIgnoreCase))
         {
-            // Usa tar -tJf per listare contenuto
-            var result = await _processRunner.RunAsync("tar", $"-tJf \"{archivePath}\"");
+            // Usa ArgumentList per evitare command injection su archivePath
+            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-J", "-f", archivePath });
 
             if (result.ExitCode != 0)
                 throw new IOException($"Errore listare tar.xz: {result.StandardError}");
@@ -202,12 +202,13 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa tar command-line per preservare permessi Unix
-        var tarArgs = preservePermissions
-            ? $"-xzf \"{archivePath}\" -C \"{destinationDirectory}\""
-            : $"--no-same-permissions -xzf \"{archivePath}\" -C \"{destinationDirectory}\"";
+        // Usa ArgumentList per evitare command injection su archivePath/destinationDirectory.
+        // --no-absolute-filenames impedisce l'estrazione di path assoluti (path traversal).
+        var args = preservePermissions
+            ? new[] { "--no-absolute-filenames", "-x", "-z", "-f", archivePath, "-C", destinationDirectory }
+            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-z", "-f", archivePath, "-C", destinationDirectory };
 
-        var result = await _processRunner.RunAsync("tar", tarArgs);
+        var result = await _processRunner.RunAsync("tar", args);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.gz: {result.StandardError}");
@@ -215,7 +216,7 @@ public class ArchiveExtractor : IArchiveExtractor
         // Conta file estratti
         var files = _fileSystem.GetFiles(destinationDirectory, "*");
         var dirs = _fileSystem.GetDirectories(destinationDirectory);
-        
+
         return files.Length + dirs.Length;
     }
 
@@ -225,12 +226,13 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa tar command-line per preservare permessi Unix
-        var tarArgs = preservePermissions
-            ? $"-xJf \"{archivePath}\" -C \"{destinationDirectory}\""
-            : $"--no-same-permissions -xJf \"{archivePath}\" -C \"{destinationDirectory}\"";
+        // Usa ArgumentList per evitare command injection su archivePath/destinationDirectory.
+        // --no-absolute-filenames impedisce l'estrazione di path assoluti (path traversal).
+        var args = preservePermissions
+            ? new[] { "--no-absolute-filenames", "-x", "-J", "-f", archivePath, "-C", destinationDirectory }
+            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-J", "-f", archivePath, "-C", destinationDirectory };
 
-        var result = await _processRunner.RunAsync("tar", tarArgs);
+        var result = await _processRunner.RunAsync("tar", args);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.xz: {result.StandardError}");

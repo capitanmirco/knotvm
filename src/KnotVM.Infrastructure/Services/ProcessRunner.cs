@@ -56,6 +56,53 @@ public class ProcessRunner : IProcessRunner
         );
     }
 
+    public async Task<ProcessResult> RunAsync(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        string? workingDirectory = null,
+        Dictionary<string, string>? environmentVariables = null,
+        int timeoutMilliseconds = 0)
+    {
+        var startInfo = CreateProcessStartInfo(executablePath, arguments, workingDirectory, environmentVariables);
+
+        using var process = new Process { StartInfo = startInfo };
+
+        var outputBuilder = new StringBuilder();
+        var errorBuilder = new StringBuilder();
+
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+                outputBuilder.AppendLine(e.Data);
+        };
+
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+                errorBuilder.AppendLine(e.Data);
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        var completed = timeoutMilliseconds == 0
+            ? await Task.Run(() => { process.WaitForExit(); return true; })
+            : await Task.Run(() => process.WaitForExit(timeoutMilliseconds));
+
+        if (!completed)
+        {
+            try { process.Kill(); } catch { /* Ignore */ }
+            throw new TimeoutException($"Processo {executablePath} timeout dopo {timeoutMilliseconds}ms");
+        }
+
+        return new ProcessResult(
+            process.ExitCode,
+            outputBuilder.ToString().TrimEnd(),
+            errorBuilder.ToString().TrimEnd()
+        );
+    }
+
     public ProcessResult Run(
         string executablePath,
         string arguments,

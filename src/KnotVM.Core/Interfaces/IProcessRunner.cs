@@ -31,6 +31,19 @@ public interface IProcessRunner
     );
 
     /// <summary>
+    /// Esegue un comando con argomenti già tokenizzati e cattura output.
+    /// Preferire questo overload quando path o argomenti derivano da input esterno,
+    /// per evitare command injection tramite parsing della stringa argomenti.
+    /// </summary>
+    Task<ProcessResult> RunAsync(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        string? workingDirectory = null,
+        Dictionary<string, string>? environmentVariables = null,
+        int timeoutMilliseconds = 0
+    );
+
+    /// <summary>
     /// Esegue un comando in modo sincrono.
     /// </summary>
     ProcessResult Run(

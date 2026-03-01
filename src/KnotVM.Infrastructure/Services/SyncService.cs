@@ -72,7 +72,7 @@ public class SyncService : ISyncService
         {
             throw new KnotVMException(
                 KnotErrorCode.SyncFailed,
-                $"Errore durante sincronizzazione proxy: {ex.Message} | StackTrace: {ex.StackTrace}",
+                $"Errore durante sincronizzazione proxy: {ex.Message}",
                 ex);
         }
     }
@@ -209,7 +209,7 @@ public class SyncService : ISyncService
             {
                 var wrapperPath = Path.Combine(binPath, cmd);
                 var isolatedProxy = ProxyNaming.BuildIsolatedProxyName(cmd);
-                var wrapperContent = $"#!/bin/bash\nexec {isolatedProxy} \"$@\"\n";
+                var wrapperContent = $"#!/bin/bash\nexec \"{isolatedProxy}\" \"$@\"\n";
                 
                 try
                 {
