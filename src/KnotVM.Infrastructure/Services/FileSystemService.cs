@@ -288,7 +288,7 @@ public class FileSystemService : IFileSystemService
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"File non trovato: {filePath}");
 
-        return File.GetLastWriteTime(filePath);
+        return File.GetLastWriteTimeUtc(filePath);
     }
 
     public string[] GetFiles(string directoryPath, string searchPattern = "*")

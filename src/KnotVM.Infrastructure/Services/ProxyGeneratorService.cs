@@ -196,19 +196,15 @@ public class ProxyGeneratorService : IProxyGeneratorService
                 }
             }
             
-            // Rimuovi wrapper bash per Git compatibility (senza estensione)
+            // Rimuovi wrapper bash per Git compatibility (senza estensione):
+            // sia i prefissati nlocal-* (da GenerateGitBashWrapper)
+            // sia i non-prefissati node/npm/npx/corepack (da SyncService.GenerateUnprefixedWrappers)
             foreach (var command in UnixWrapperCommands)
             {
-                var wrapperName = ProxyNaming.BuildIsolatedProxyName(command);
-                var wrapperPath = Path.Combine(binDir, wrapperName);
-                try
-                {
-                    _fileSystem.DeleteFileIfExists(wrapperPath);
-                }
-                catch
-                {
-                    // Ignora errori
-                }
+                var isolatedWrapperPath = Path.Combine(binDir, ProxyNaming.BuildIsolatedProxyName(command));
+                var unprefixedWrapperPath = Path.Combine(binDir, command);
+                try { _fileSystem.DeleteFileIfExists(isolatedWrapperPath); } catch { }
+                try { _fileSystem.DeleteFileIfExists(unprefixedWrapperPath); } catch { }
             }
             
             // Rimuovi anche eventuali shim (ignora errori se locked)
@@ -370,9 +366,13 @@ public class ProxyGeneratorService : IProxyGeneratorService
     /// </summary>
     private void GenerateGitBashWrapper(string proxyName, string binDir)
     {
-        // Wrapper minimale che redirige a .cmd
-        // IMPORTANTE: usa LF (Unix line endings), non CRLF
-        var wrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nexec \"{proxyName}.cmd\" \"$@\"\n";
+        // Wrapper che redirige a .cmd usando percorso assoluto basato sulla directory dello script.
+        // IMPORTANTE: usa LF (Unix line endings), non CRLF.
+        // Il percorso assoluto garantisce il funzionamento anche quando il bin dir non è nel PATH
+        // (es: in git hooks che ereditano un ambiente minimale).
+        // Non si usa 'exec' perché i file .cmd richiedono cmd.exe e non sono eseguibili
+        // tramite POSIX exec su alcuni ambienti Git Bash/MSYS2.
+        var wrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nSCRIPT_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n\"$SCRIPT_DIR/{proxyName}.cmd\" \"$@\"\n";
         
         // Nome senza estensione (es: "nlocal-node" invece di "nlocal-node.cmd")
         var wrapperPath = Path.Combine(binDir, proxyName);
