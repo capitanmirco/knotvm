@@ -8,6 +8,7 @@ using Xunit;
 
 namespace KnotVM.Tests.CLI;
 
+[Collection("Sequential")]
 public class ListRemoteCommandTests
 {
     [Fact]

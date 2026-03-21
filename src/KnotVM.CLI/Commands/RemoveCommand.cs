@@ -209,7 +209,7 @@ public class RemoveCommand : Command
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLine($"[red][[X]][/] Errore rimozione [bold]{inst.Alias}[/]: {ex.Message}");
+                AnsiConsole.MarkupLine($"[red][[X]][/] Errore rimozione [bold]{Markup.Escape(inst.Alias)}[/]: {Markup.Escape(ex.Message)}");
                 failed++;
             }
         }

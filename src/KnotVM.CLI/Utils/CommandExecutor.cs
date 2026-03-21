@@ -76,7 +76,7 @@ public static class CommandExecutor
                 Exceptions.PrintKnotHintException(hintException);
                 return hintException.ExitCode;
             case KnotVMException knotException:
-                AnsiConsole.MarkupLine($"[red]{knotException.CodeString}:[/] {knotException.Message}");
+                AnsiConsole.MarkupLine($"[red]{knotException.CodeString}:[/] {Markup.Escape(knotException.Message)}");
                 return knotException.ExitCode;
             case OperationCanceledException:
                 AnsiConsole.MarkupLine("[yellow]Operazione annullata.[/]");
@@ -84,7 +84,7 @@ public static class CommandExecutor
             default:
                 AnsiConsole.MarkupLine("[red]KNOT-GEN-001:[/] Errore inatteso durante l'esecuzione del comando");
                 AnsiConsole.MarkupLine("[yellow]Hint:[/] Riprovare o aprire una issue su GitHub con i dettagli dell'errore");
-                AnsiConsole.MarkupLine($"[dim]Dettaglio: {ex.Message}[/]");
+                AnsiConsole.MarkupLine($"[dim]Dettaglio: {Markup.Escape(ex.Message)}[/]");
                 return 99;
         }
     }

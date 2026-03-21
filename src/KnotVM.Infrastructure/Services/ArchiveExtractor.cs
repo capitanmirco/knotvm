@@ -202,21 +202,14 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa ArgumentList per evitare command injection su archivePath/destinationDirectory.
-        // --no-absolute-filenames impedisce l'estrazione di path assoluti (path traversal).
-        var args = preservePermissions
-            ? new[] { "--no-absolute-filenames", "-x", "-z", "-f", archivePath, "-C", destinationDirectory }
-            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-z", "-f", archivePath, "-C", destinationDirectory };
-
+        var args = BuildTarArgs("-z", archivePath, destinationDirectory, preservePermissions);
         var result = await _processRunner.RunAsync("tar", args);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.gz: {result.StandardError}");
 
-        // Conta file estratti
         var files = _fileSystem.GetFiles(destinationDirectory, "*");
         var dirs = _fileSystem.GetDirectories(destinationDirectory);
-
         return files.Length + dirs.Length;
     }
 
@@ -226,21 +219,39 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa ArgumentList per evitare command injection su archivePath/destinationDirectory.
-        // --no-absolute-filenames impedisce l'estrazione di path assoluti (path traversal).
-        var args = preservePermissions
-            ? new[] { "--no-absolute-filenames", "-x", "-J", "-f", archivePath, "-C", destinationDirectory }
-            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-J", "-f", archivePath, "-C", destinationDirectory };
-
+        var args = BuildTarArgs("-J", archivePath, destinationDirectory, preservePermissions);
         var result = await _processRunner.RunAsync("tar", args);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.xz: {result.StandardError}");
 
-        // Conta file estratti
         var files = _fileSystem.GetFiles(destinationDirectory, "*");
         var dirs = _fileSystem.GetDirectories(destinationDirectory);
-
         return files.Length + dirs.Length;
+    }
+
+    /// <summary>
+    /// Costruisce gli argomenti tar in base all'OS.
+    /// GNU tar (Linux): usa --no-absolute-filenames e --no-same-permissions.
+    /// BSD tar (macOS): non supporta quei flag; strip path assoluti è il default,
+    ///                  e -p controlla esplicitamente la preservazione dei permessi.
+    /// </summary>
+    private string[] BuildTarArgs(string formatFlag, string archivePath, string destinationDirectory, bool preservePermissions)
+    {
+        var isMacOs = _platform.GetCurrentOs() == HostOs.MacOS;
+
+        if (isMacOs)
+        {
+            // BSD tar: absolute paths stripped by default (no --no-absolute-filenames needed).
+            // -p preserves permissions; omitting it applies the current umask.
+            return preservePermissions
+                ? new[] { "-p", "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory }
+                : new[] { "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory };
+        }
+
+        // GNU tar (Linux)
+        return preservePermissions
+            ? new[] { "--no-absolute-filenames", "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory }
+            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory };
     }
 }
