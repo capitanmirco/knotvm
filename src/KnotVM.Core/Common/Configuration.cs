@@ -76,7 +76,19 @@ public record Configuration(
         var knotHome = Environment.GetEnvironmentVariable(KnotHomeEnvVar);
         if (!string.IsNullOrWhiteSpace(knotHome))
         {
-            return knotHome.Trim();
+            knotHome = knotHome.Trim();
+
+            if (!Path.IsPathRooted(knotHome))
+                throw new KnotVMException(
+                    KnotErrorCode.InvalidArgument,
+                    $"La variabile d'ambiente {KnotHomeEnvVar} deve contenere un percorso assoluto. Valore attuale: '{knotHome}'");
+
+            if (knotHome.IndexOfAny(['"', '\n', '\r']) >= 0)
+                throw new KnotVMException(
+                    KnotErrorCode.InvalidArgument,
+                    $"La variabile d'ambiente {KnotHomeEnvVar} contiene caratteri non validi (\", \\n, \\r)");
+
+            return knotHome;
         }
 
         // 2. Default OS-specific

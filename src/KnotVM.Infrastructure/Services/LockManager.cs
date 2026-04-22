@@ -33,6 +33,7 @@ public class LockManager : ILockManager
 
         while (singleAttempt || DateTime.UtcNow < deadline)
         {
+            var lockAcquired = false;
             try
             {
                 _fileSystem.EnsureDirectoryExists(_pathService.GetLocksPath());
@@ -58,16 +59,25 @@ public class LockManager : ILockManager
                     _activeLocks[lockName] = lockStream;
                 }
 
+                lockAcquired = true;
                 return new LockHandle(lockName, lockStream, this);
             }
             catch (IOException)
             {
                 // Lock già acquisito da altro processo
                 lockStream?.Dispose();
+                lockStream = null;
                 if (singleAttempt)
                     break;
 
                 Thread.Sleep(100); // Retry dopo 100ms
+            }
+            catch
+            {
+                // Eccezione inattesa: rilascia la risorsa e ripropagate
+                if (!lockAcquired)
+                    lockStream?.Dispose();
+                throw;
             }
             finally
             {

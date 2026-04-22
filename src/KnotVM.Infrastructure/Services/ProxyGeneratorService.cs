@@ -261,9 +261,9 @@ public class ProxyGeneratorService : IProxyGeneratorService
             .Replace("{{COMMAND_NAME}}", commandName.ToUpperInvariant())
             .Replace("{{COMMAND_EXE}}", commandExe);
 
+        ValidateNoUnsubstitutedPlaceholders(proxyContent, "generic-proxy.cmd");
+
         var proxyPath = Path.Combine(binDir, $"{proxyName}.cmd");
-        
-        // Windows: encoding ASCII, line ending CRLF (default)
         _fileSystem.WriteAllTextSafe(proxyPath, proxyContent);
         
         // Git Bash compatibility: crea wrapper bash per comandi principali
@@ -291,6 +291,8 @@ public class ProxyGeneratorService : IProxyGeneratorService
             .Replace("{{VERSIONS_PATH}}", versionsPath)
             .Replace("{{PM_NAME}}", packageManager)
             .Replace("{{SCRIPT_PATH}}", scriptPath);
+
+        ValidateNoUnsubstitutedPlaceholders(proxyContent, "package-manager.cmd");
 
         var proxyPath = Path.Combine(binDir, $"{proxyName}.cmd");
         _fileSystem.WriteAllTextSafe(proxyPath, proxyContent);
@@ -323,9 +325,9 @@ public class ProxyGeneratorService : IProxyGeneratorService
             .Replace("{{COMMAND_NAME}}", commandName)
             .Replace("{{COMMAND_EXE}}", commandExe);
 
+        ValidateNoUnsubstitutedPlaceholders(proxyContent, "generic-proxy.bash");
+
         var proxyPath = Path.Combine(binDir, proxyName);
-        
-        // Unix: UTF-8 no BOM, line ending LF
         _fileSystem.WriteAllTextSafe(proxyPath, proxyContent);
         
         // Imposta permessi eseguibili
@@ -349,6 +351,8 @@ public class ProxyGeneratorService : IProxyGeneratorService
             .Replace("{{VERSIONS_PATH}}", versionsPath)
             .Replace("{{PM_NAME}}", packageManager)
             .Replace("{{SCRIPT_PATH}}", scriptPath);
+
+        ValidateNoUnsubstitutedPlaceholders(proxyContent, "package-manager.bash");
 
         var proxyPath = Path.Combine(binDir, proxyName);
         
@@ -396,6 +400,14 @@ public class ProxyGeneratorService : IProxyGeneratorService
     private static string EscapeCSharpString(string str)
     {
         return str.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    }
+
+    private static void ValidateNoUnsubstitutedPlaceholders(string content, string templateName)
+    {
+        if (content.Contains("{{", StringComparison.Ordinal))
+            throw new KnotVMException(
+                KnotErrorCode.ProxyGenerationFailed,
+                $"Il template '{templateName}' contiene placeholder non sostituiti");
     }
 
     private static bool IsManagedUnixProxyOrWrapper(string filePath)
