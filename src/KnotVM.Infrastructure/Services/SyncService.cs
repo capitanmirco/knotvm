@@ -72,7 +72,7 @@ public class SyncService : ISyncService
         {
             throw new KnotVMException(
                 KnotErrorCode.SyncFailed,
-                $"Errore durante sincronizzazione proxy: {ex.Message} | StackTrace: {ex.StackTrace}",
+                $"Errore durante sincronizzazione proxy: {ex.Message}",
                 ex);
         }
     }
@@ -191,8 +191,10 @@ public class SyncService : ISyncService
                 try
                 {
                     var bashWrapperPath = Path.Combine(binPath, cmd);
-                    var bashWrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nexec \"{isolatedProxy}.cmd\" \"$@\"\n";
-                    
+                    // Usa percorso assoluto basato sulla directory dello script per garantire
+                    // il funzionamento anche nei git hook con PATH minimale.
+                    var bashWrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nSCRIPT_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n\"$SCRIPT_DIR/{isolatedProxy}.cmd\" \"$@\"\n";
+
                     // Usa encoding UTF-8 senza BOM e line ending Unix (LF)
                     var utf8NoBom = new System.Text.UTF8Encoding(false);
                     File.WriteAllText(bashWrapperPath, bashWrapperContent, utf8NoBom);
@@ -209,7 +211,7 @@ public class SyncService : ISyncService
             {
                 var wrapperPath = Path.Combine(binPath, cmd);
                 var isolatedProxy = ProxyNaming.BuildIsolatedProxyName(cmd);
-                var wrapperContent = $"#!/bin/bash\nexec {isolatedProxy} \"$@\"\n";
+                var wrapperContent = $"#!/bin/bash\nexec \"{isolatedProxy}\" \"$@\"\n";
                 
                 try
                 {

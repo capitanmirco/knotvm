@@ -59,6 +59,7 @@ public class ArchiveExtractorTests
         fileSystemMock.Setup(x => x.GetDirectories(It.IsAny<string>()))
             .Returns(Array.Empty<string>());
 
+        // Overload con stringa (legacy, non più usato da ArchiveExtractor)
         processRunnerMock.Setup(x => x.RunAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
@@ -66,6 +67,16 @@ public class ArchiveExtractorTests
                 It.IsAny<Dictionary<string, string>?>(),
                 It.IsAny<int>()))
             .Returns((string exe, string args, string? workingDirectory, Dictionary<string, string>? environment, int timeoutMilliseconds) => runAsync(exe, args));
+
+        // Overload con ArgumentList (usato da ArchiveExtractor per evitare command injection)
+        processRunnerMock.Setup(x => x.RunAsync(
+                It.IsAny<string>(),
+                It.IsAny<IReadOnlyList<string>>(),
+                It.IsAny<string?>(),
+                It.IsAny<Dictionary<string, string>?>(),
+                It.IsAny<int>()))
+            .Returns((string exe, IReadOnlyList<string> args, string? workingDirectory, Dictionary<string, string>? environment, int timeoutMilliseconds)
+                => runAsync(exe, string.Join(" ", args)));
 
         return new ArchiveExtractor(platformMock.Object, fileSystemMock.Object, processRunnerMock.Object);
     }

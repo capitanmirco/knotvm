@@ -108,9 +108,9 @@ public class ArchiveExtractor : IArchiveExtractor
 
         if (archivePath.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
         {
-            // Usa tar -tzf per listare contenuto
-            var result = await _processRunner.RunAsync("tar", $"-tzf \"{archivePath}\"");
-            
+            // Usa ArgumentList per evitare command injection su archivePath
+            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-z", "-f", archivePath });
+
             if (result.ExitCode != 0)
                 throw new IOException($"Errore listare tar.gz: {result.StandardError}");
 
@@ -122,8 +122,8 @@ public class ArchiveExtractor : IArchiveExtractor
 
         if (archivePath.EndsWith(".tar.xz", StringComparison.OrdinalIgnoreCase))
         {
-            // Usa tar -tJf per listare contenuto
-            var result = await _processRunner.RunAsync("tar", $"-tJf \"{archivePath}\"");
+            // Usa ArgumentList per evitare command injection su archivePath
+            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-J", "-f", archivePath });
 
             if (result.ExitCode != 0)
                 throw new IOException($"Errore listare tar.xz: {result.StandardError}");
@@ -202,20 +202,14 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa tar command-line per preservare permessi Unix
-        var tarArgs = preservePermissions
-            ? $"-xzf \"{archivePath}\" -C \"{destinationDirectory}\""
-            : $"--no-same-permissions -xzf \"{archivePath}\" -C \"{destinationDirectory}\"";
-
-        var result = await _processRunner.RunAsync("tar", tarArgs);
+        var args = BuildTarArgs("-z", archivePath, destinationDirectory, preservePermissions);
+        var result = await _processRunner.RunAsync("tar", args);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.gz: {result.StandardError}");
 
-        // Conta file estratti
         var files = _fileSystem.GetFiles(destinationDirectory, "*");
         var dirs = _fileSystem.GetDirectories(destinationDirectory);
-        
         return files.Length + dirs.Length;
     }
 
@@ -225,20 +219,39 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa tar command-line per preservare permessi Unix
-        var tarArgs = preservePermissions
-            ? $"-xJf \"{archivePath}\" -C \"{destinationDirectory}\""
-            : $"--no-same-permissions -xJf \"{archivePath}\" -C \"{destinationDirectory}\"";
-
-        var result = await _processRunner.RunAsync("tar", tarArgs);
+        var args = BuildTarArgs("-J", archivePath, destinationDirectory, preservePermissions);
+        var result = await _processRunner.RunAsync("tar", args);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.xz: {result.StandardError}");
 
-        // Conta file estratti
         var files = _fileSystem.GetFiles(destinationDirectory, "*");
         var dirs = _fileSystem.GetDirectories(destinationDirectory);
-
         return files.Length + dirs.Length;
+    }
+
+    /// <summary>
+    /// Costruisce gli argomenti tar in base all'OS.
+    /// GNU tar (Linux): usa --no-absolute-filenames e --no-same-permissions.
+    /// BSD tar (macOS): non supporta quei flag; strip path assoluti è il default,
+    ///                  e -p controlla esplicitamente la preservazione dei permessi.
+    /// </summary>
+    private string[] BuildTarArgs(string formatFlag, string archivePath, string destinationDirectory, bool preservePermissions)
+    {
+        var isMacOs = _platform.GetCurrentOs() == HostOs.MacOS;
+
+        if (isMacOs)
+        {
+            // BSD tar: absolute paths stripped by default (no --no-absolute-filenames needed).
+            // -p preserves permissions; omitting it applies the current umask.
+            return preservePermissions
+                ? new[] { "-p", "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory }
+                : new[] { "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory };
+        }
+
+        // GNU tar (Linux)
+        return preservePermissions
+            ? new[] { "--no-absolute-filenames", "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory }
+            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", formatFlag, "-f", archivePath, "-C", destinationDirectory };
     }
 }
