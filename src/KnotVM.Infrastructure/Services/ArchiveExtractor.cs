@@ -109,7 +109,7 @@ public class ArchiveExtractor : IArchiveExtractor
         if (archivePath.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase))
         {
             // Usa ArgumentList per evitare command injection su archivePath
-            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-z", "-f", archivePath });
+            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-z", "-f", archivePath }, timeoutMilliseconds: 300_000);
 
             if (result.ExitCode != 0)
                 throw new IOException($"Errore listare tar.gz: {result.StandardError}");
@@ -123,7 +123,7 @@ public class ArchiveExtractor : IArchiveExtractor
         if (archivePath.EndsWith(".tar.xz", StringComparison.OrdinalIgnoreCase))
         {
             // Usa ArgumentList per evitare command injection su archivePath
-            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-J", "-f", archivePath });
+            var result = await _processRunner.RunAsync("tar", new[] { "-t", "-J", "-f", archivePath }, timeoutMilliseconds: 300_000);
 
             if (result.ExitCode != 0)
                 throw new IOException($"Errore listare tar.xz: {result.StandardError}");
@@ -172,8 +172,8 @@ public class ArchiveExtractor : IArchiveExtractor
                 // Validazione path traversal
                 var fullDestPath = Path.GetFullPath(destinationPath);
                 var fullDestDir = Path.GetFullPath(destinationDirectory);
-                
-                if (!fullDestPath.StartsWith(fullDestDir, StringComparison.OrdinalIgnoreCase))
+                // Usa Ordinal (case-sensitive) per garantire correttezza su filesystem case-sensitive (Linux/macOS).
+                if (!fullDestPath.StartsWith(fullDestDir, StringComparison.Ordinal))
                     throw new IOException($"Path traversal rilevato: {entry.FullName}");
 
                 if (entry.FullName.EndsWith('/') || entry.FullName.EndsWith('\\'))
@@ -208,7 +208,7 @@ public class ArchiveExtractor : IArchiveExtractor
             ? new[] { "--no-absolute-filenames", "-x", "-z", "-f", archivePath, "-C", destinationDirectory }
             : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-z", "-f", archivePath, "-C", destinationDirectory };
 
-        var result = await _processRunner.RunAsync("tar", args);
+        var result = await _processRunner.RunAsync("tar", args, timeoutMilliseconds: 300_000);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.gz: {result.StandardError}");
@@ -232,7 +232,7 @@ public class ArchiveExtractor : IArchiveExtractor
             ? new[] { "--no-absolute-filenames", "-x", "-J", "-f", archivePath, "-C", destinationDirectory }
             : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-J", "-f", archivePath, "-C", destinationDirectory };
 
-        var result = await _processRunner.RunAsync("tar", args);
+        var result = await _processRunner.RunAsync("tar", args, timeoutMilliseconds: 300_000);
 
         if (result.ExitCode != 0)
             throw new IOException($"Errore estrazione tar.xz: {result.StandardError}");

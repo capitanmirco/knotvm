@@ -175,7 +175,7 @@ public class FileSystemServiceTests
         Directory.CreateDirectory(_testDir);
         var testFile = Path.Combine(_testDir, "test.txt");
         File.WriteAllText(testFile, "test");
-        var expectedTime = File.GetLastWriteTime(testFile);
+        var expectedTime = File.GetLastWriteTimeUtc(testFile);
 
         // Act
         var result = _sut.GetFileLastWriteTime(testFile);
