@@ -4,6 +4,8 @@ using KnotVM.CLI.Commands;
 using KnotVM.Core.Interfaces;
 using KnotVM.Core.Models;
 using Moq;
+using Spectre.Console;
+using Spectre.Console.Testing;
 using Xunit;
 
 namespace KnotVM.Tests.CLI;
@@ -26,6 +28,11 @@ public class ListRemoteCommandTests
         var command = new ListRemoteCommand(remoteServiceMock.Object);
         var rootCommand = new RootCommand();
         rootCommand.Subcommands.Add(command);
+
+        // Configure AnsiConsole for testing
+        var testConsole = new TestConsole();
+        testConsole.Profile.Capabilities.Interactive = false;
+        AnsiConsole.Console = testConsole;
 
         // Act
         var exitCode = rootCommand.Parse(["list-remote"]).Invoke();

@@ -20,7 +20,7 @@ if "%CURRENT_VERSION%"=="" (
 )
 
 REM Costruisci il path alla versione
-set {{COMMAND_NAME}}_EXE=%VERSIONS_PATH%\%CURRENT_VERSION%\{{COMMAND_EXE}}
+set "{{COMMAND_NAME}}_EXE=%VERSIONS_PATH%\%CURRENT_VERSION%\{{COMMAND_EXE}}"
 
 if not exist "%{{COMMAND_NAME}}_EXE%" (
             echo Errore: {{COMMAND_NAME}} versione %CURRENT_VERSION% non trovato.

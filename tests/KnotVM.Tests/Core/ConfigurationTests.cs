@@ -185,7 +185,7 @@ public class ConfigurationTests
     }
 
     [Fact]
-    public void Configuration_ShouldHandleRelativePaths()
+    public void Configuration_ShouldRejectRelativePaths()
     {
         // Arrange
         var relativePath = "./relative-knot-test";
@@ -195,12 +195,11 @@ public class ConfigurationTests
         {
             Environment.SetEnvironmentVariable(Configuration.KnotHomeEnvVar, relativePath);
             
-            // Act
-            var config = Configuration.Create();
-            
-            // Assert
-            // Path dovrebbe essere il relativo
-            config.AppDataPath.Should().Be(relativePath);
+            // Act & Assert
+            // Path relativo deve essere rifiutato con KnotVMException (sicurezza: path traversal)
+            var act = () => Configuration.Create();
+            act.Should().Throw<KnotVMException>()
+                .Which.ErrorCode.Should().Be(KnotErrorCode.InvalidArgument);
         }
         finally
         {
