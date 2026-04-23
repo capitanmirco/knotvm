@@ -19,7 +19,24 @@ public class PathService(IPlatformService platform, Configuration config) : IPat
     public string GetInstallationPath(string alias)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
-        return Path.Combine(config.VersionsPath, alias);
+
+        // Risolvi il path assoluto per prevenire path traversal (es: "../../etc").
+        // Normalizza anche config.VersionsPath per garantire un confronto affidabile.
+        var versionsRoot = Path.GetFullPath(config.VersionsPath);
+        var candidatePath = Path.GetFullPath(Path.Combine(versionsRoot, alias));
+
+        // Il path finale deve trovarsi DENTRO versionsRoot (non pari ad esso, non sopra).
+        var expectedPrefix = versionsRoot.TrimEnd(Path.DirectorySeparatorChar)
+                             + Path.DirectorySeparatorChar;
+
+        if (!candidatePath.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                $"Alias '{alias}' non valido: il path risultante esce dalla directory delle installazioni.",
+                nameof(alias));
+        }
+
+        return candidatePath;
     }
 
     public string GetNodeExecutablePath(string installationPath)

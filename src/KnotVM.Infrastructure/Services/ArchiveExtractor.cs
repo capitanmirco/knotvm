@@ -169,10 +169,13 @@ public class ArchiveExtractor : IArchiveExtractor
 
                 var destinationPath = Path.Combine(destinationDirectory, entry.FullName);
 
-                // Validazione path traversal
+                // Zip Slip prevention: il separatore finale garantisce che
+                // "/tmp/safe" non accetti path come "/tmp/safehouse/evil".
+                // Usa Ordinal (case-sensitive) per correttezza su filesystem case-sensitive (Linux/macOS).
                 var fullDestPath = Path.GetFullPath(destinationPath);
-                var fullDestDir = Path.GetFullPath(destinationDirectory);
-                // Usa Ordinal (case-sensitive) per garantire correttezza su filesystem case-sensitive (Linux/macOS).
+                var fullDestDir = Path.GetFullPath(destinationDirectory)
+                                      .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                                  + Path.DirectorySeparatorChar;
                 if (!fullDestPath.StartsWith(fullDestDir, StringComparison.Ordinal))
                     throw new IOException($"Path traversal rilevato: {entry.FullName}");
 

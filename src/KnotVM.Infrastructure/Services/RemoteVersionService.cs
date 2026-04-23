@@ -11,7 +11,7 @@ namespace KnotVM.Infrastructure.Services;
 /// Implementazione servizio versioni remote da nodejs.org.
 /// Copia locale dell'index salvata in KNOT_HOME/versions-index.json.
 /// </summary>
-public class RemoteVersionService : IRemoteVersionService
+public class RemoteVersionService : IRemoteVersionService, IDisposable
 {
     private const string NodeDistIndexUrl = "https://nodejs.org/dist/index.json";
     private const int CacheExpiryMinutes = 60; // Cache valida per 1 ora
@@ -20,6 +20,10 @@ public class RemoteVersionService : IRemoteVersionService
     private readonly IPathService _pathService;
     private readonly HttpClient _httpClient;
     private readonly string _indexFilePath;
+
+    // Protegge _memoryCache e _memoryCacheTimestamp da accessi concorrenti.
+    // SemaphoreSlim(1,1) è lo standard async-friendly per sezioni critiche.
+    private readonly SemaphoreSlim _cacheLock = new(1, 1);
     private RemoteVersion[]? _memoryCache;
     private DateTime? _memoryCacheTimestamp;
 
@@ -32,6 +36,19 @@ public class RemoteVersionService : IRemoteVersionService
     }
 
     public async Task<RemoteVersion[]> GetAvailableVersionsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
+    {
+        await _cacheLock.WaitAsync(cancellationToken);
+        try
+        {
+            return await GetAvailableVersionsCoreAsync(forceRefresh, cancellationToken);
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+    }
+
+    private async Task<RemoteVersion[]> GetAvailableVersionsCoreAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
         // Check memory cache
         if (!forceRefresh && _memoryCache != null && _memoryCacheTimestamp.HasValue)
@@ -138,9 +155,24 @@ public class RemoteVersionService : IRemoteVersionService
 
     public void ClearCache()
     {
-        _memoryCache = null;
-        _memoryCacheTimestamp = null;
-        _fileSystem.DeleteFileIfExists(_indexFilePath);
+        _cacheLock.Wait();
+        try
+        {
+            _memoryCache = null;
+            _memoryCacheTimestamp = null;
+            // La cancellazione del file deve avvenire dentro il lock per evitare
+            // che un altro thread legga il file mentre la cache in-memoria è già invalidata.
+            _fileSystem.DeleteFileIfExists(_indexFilePath);
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cacheLock.Dispose();
     }
 
     private RemoteVersion[] ParseVersionsJson(string json)

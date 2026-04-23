@@ -17,43 +17,7 @@ public class ProcessRunner : IProcessRunner
         int timeoutMilliseconds = 0)
     {
         var startInfo = CreateProcessStartInfo(executablePath, arguments, workingDirectory, environmentVariables);
-        
-        using var process = new Process { StartInfo = startInfo };
-        
-        var outputBuilder = new StringBuilder();
-        var errorBuilder = new StringBuilder();
-
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-                outputBuilder.AppendLine(e.Data);
-        };
-
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-                errorBuilder.AppendLine(e.Data);
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        var completed = timeoutMilliseconds == 0
-            ? await Task.Run(() => { process.WaitForExit(); return true; })
-            : await Task.Run(() => process.WaitForExit(timeoutMilliseconds));
-
-        if (!completed)
-        {
-            try { process.Kill(); } catch { /* Ignore */ }
-            throw new TimeoutException($"Processo {executablePath} timeout dopo {timeoutMilliseconds}ms");
-        }
-
-        return new ProcessResult(
-            process.ExitCode,
-            outputBuilder.ToString().TrimEnd(),
-            errorBuilder.ToString().TrimEnd()
-        );
+        return await RunCoreAsync(startInfo, executablePath, timeoutMilliseconds);
     }
 
     public async Task<ProcessResult> RunAsync(
@@ -64,45 +28,13 @@ public class ProcessRunner : IProcessRunner
         int timeoutMilliseconds = 0)
     {
         var startInfo = CreateProcessStartInfo(executablePath, arguments, workingDirectory, environmentVariables);
-
-        using var process = new Process { StartInfo = startInfo };
-
-        var outputBuilder = new StringBuilder();
-        var errorBuilder = new StringBuilder();
-
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-                outputBuilder.AppendLine(e.Data);
-        };
-
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data != null)
-                errorBuilder.AppendLine(e.Data);
-        };
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        var completed = timeoutMilliseconds == 0
-            ? await Task.Run(() => { process.WaitForExit(); return true; })
-            : await Task.Run(() => process.WaitForExit(timeoutMilliseconds));
-
-        if (!completed)
-        {
-            try { process.Kill(); } catch { /* Ignore */ }
-            throw new TimeoutException($"Processo {executablePath} timeout dopo {timeoutMilliseconds}ms");
-        }
-
-        return new ProcessResult(
-            process.ExitCode,
-            outputBuilder.ToString().TrimEnd(),
-            errorBuilder.ToString().TrimEnd()
-        );
+        return await RunCoreAsync(startInfo, executablePath, timeoutMilliseconds);
     }
 
+    /// <summary>
+    /// Implementazione sincrona diretta: usa WaitForExit() senza passare per RunAsync
+    /// per evitare il pattern sync-over-async che può causare deadlock.
+    /// </summary>
     public ProcessResult Run(
         string executablePath,
         string arguments,
@@ -110,9 +42,8 @@ public class ProcessRunner : IProcessRunner
         Dictionary<string, string>? environmentVariables = null,
         int timeoutMilliseconds = 0)
     {
-        return RunAsync(executablePath, arguments, workingDirectory, environmentVariables, timeoutMilliseconds)
-            .GetAwaiter()
-            .GetResult();
+        var startInfo = CreateProcessStartInfo(executablePath, arguments, workingDirectory, environmentVariables);
+        return RunCoreSync(startInfo, executablePath, timeoutMilliseconds);
     }
 
     public int RunAndPropagateExitCode(
@@ -122,7 +53,7 @@ public class ProcessRunner : IProcessRunner
         Dictionary<string, string>? environmentVariables = null)
     {
         var startInfo = CreateProcessStartInfo(executablePath, arguments, workingDirectory, environmentVariables);
-        
+
         // Non redirige output: stdout/stderr passano direttamente al terminale
         startInfo.RedirectStandardOutput = false;
         startInfo.RedirectStandardError = false;
@@ -157,7 +88,7 @@ public class ProcessRunner : IProcessRunner
     {
         try
         {
-            return File.Exists(executablePath) && 
+            return File.Exists(executablePath) &&
                    new FileInfo(executablePath).Length > 0;
         }
         catch
@@ -174,12 +105,12 @@ public class ProcessRunner : IProcessRunner
         try
         {
             var result = Run(nodeExecutablePath, "-v", timeoutMilliseconds: 5000);
-            
+
             if (result.ExitCode != 0)
                 return null;
 
             var version = result.StandardOutput.Trim();
-            
+
             // Rimuovi prefisso 'v' se presente
             if (version.StartsWith('v'))
                 version = version.Substring(1);
@@ -190,74 +121,6 @@ public class ProcessRunner : IProcessRunner
         {
             return null;
         }
-    }
-
-    private static ProcessStartInfo CreateProcessStartInfo(
-        string executablePath,
-        string arguments,
-        string? workingDirectory,
-        Dictionary<string, string>? environmentVariables)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = executablePath,
-            Arguments = arguments,
-            WorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory(),
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        // Applica environment variables isolato se specificato
-        if (environmentVariables != null)
-        {
-            foreach (var kvp in environmentVariables)
-            {
-                if (startInfo.Environment.ContainsKey(kvp.Key))
-                    startInfo.Environment[kvp.Key] = kvp.Value;
-                else
-                    startInfo.Environment.Add(kvp.Key, kvp.Value);
-            }
-        }
-
-        return startInfo;
-    }
-
-    private static ProcessStartInfo CreateProcessStartInfo(
-        string executablePath,
-        IReadOnlyList<string> arguments,
-        string? workingDirectory,
-        Dictionary<string, string>? environmentVariables)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = executablePath,
-            WorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory(),
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        // Applica environment variables isolato se specificato
-        if (environmentVariables != null)
-        {
-            foreach (var kvp in environmentVariables)
-            {
-                if (startInfo.Environment.ContainsKey(kvp.Key))
-                    startInfo.Environment[kvp.Key] = kvp.Value;
-                else
-                    startInfo.Environment.Add(kvp.Key, kvp.Value);
-            }
-        }
-
-        return startInfo;
     }
 
     public List<int> FindRunningProcesses(string executablePath)
@@ -304,5 +167,188 @@ public class ProcessRunner : IProcessRunner
         }
 
         return processIds;
+    }
+
+    // ── Core execution helpers ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Esecuzione asincrona tramite WaitForExitAsync: non blocca thread-pool thread
+    /// per tutta la durata del processo figlio.
+    /// </summary>
+    private static async Task<ProcessResult> RunCoreAsync(
+        ProcessStartInfo startInfo,
+        string executablePath,
+        int timeoutMilliseconds)
+    {
+        using var process = new Process { StartInfo = startInfo };
+
+        var outputBuilder = new StringBuilder();
+        var errorBuilder  = new StringBuilder();
+
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null) outputBuilder.AppendLine(e.Data);
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null) errorBuilder.AppendLine(e.Data);
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        if (timeoutMilliseconds > 0)
+        {
+            using var cts = new CancellationTokenSource(timeoutMilliseconds);
+            try
+            {
+                await process.WaitForExitAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                KillSafely(process);
+                throw new TimeoutException($"Processo '{executablePath}' timeout dopo {timeoutMilliseconds}ms");
+            }
+        }
+        else
+        {
+            await process.WaitForExitAsync();
+        }
+
+        return new ProcessResult(
+            process.ExitCode,
+            outputBuilder.ToString().TrimEnd(),
+            errorBuilder.ToString().TrimEnd());
+    }
+
+    /// <summary>
+    /// Esecuzione sincrona diretta: usa WaitForExit() senza passare per Task.
+    /// Evita il pattern sync-over-async e il rischio di deadlock associato.
+    /// </summary>
+    private static ProcessResult RunCoreSync(
+        ProcessStartInfo startInfo,
+        string executablePath,
+        int timeoutMilliseconds)
+    {
+        using var process = new Process { StartInfo = startInfo };
+
+        var outputBuilder = new StringBuilder();
+        var errorBuilder  = new StringBuilder();
+
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null) outputBuilder.AppendLine(e.Data);
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null) errorBuilder.AppendLine(e.Data);
+        };
+
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        bool completed;
+        if (timeoutMilliseconds > 0)
+        {
+            completed = process.WaitForExit(timeoutMilliseconds);
+        }
+        else
+        {
+            process.WaitForExit();
+            completed = true;
+        }
+
+        if (!completed)
+        {
+            KillSafely(process);
+            throw new TimeoutException($"Processo '{executablePath}' timeout dopo {timeoutMilliseconds}ms");
+        }
+
+        // WaitForExit() senza argomenti garantisce flush dei buffer asincroni
+        process.WaitForExit();
+
+        return new ProcessResult(
+            process.ExitCode,
+            outputBuilder.ToString().TrimEnd(),
+            errorBuilder.ToString().TrimEnd());
+    }
+
+    /// <summary>
+    /// Termina il processo ignorando <see cref="InvalidOperationException"/>
+    /// (processo già uscito) che è la condizione attesa, non un errore reale.
+    /// </summary>
+    private static void KillSafely(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (InvalidOperationException)
+        {
+            // Il processo è già terminato prima che riuscissimo a killarlo — ok.
+        }
+    }
+
+    // ── StartInfo factories ───────────────────────────────────────────────────
+
+    private static ProcessStartInfo CreateProcessStartInfo(
+        string executablePath,
+        string arguments,
+        string? workingDirectory,
+        Dictionary<string, string>? environmentVariables)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = executablePath,
+            Arguments = arguments,
+            WorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory(),
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        ApplyEnvironmentVariables(startInfo, environmentVariables);
+        return startInfo;
+    }
+
+    private static ProcessStartInfo CreateProcessStartInfo(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        string? workingDirectory,
+        Dictionary<string, string>? environmentVariables)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = executablePath,
+            WorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory(),
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+            startInfo.ArgumentList.Add(argument);
+
+        ApplyEnvironmentVariables(startInfo, environmentVariables);
+        return startInfo;
+    }
+
+    private static void ApplyEnvironmentVariables(
+        ProcessStartInfo startInfo,
+        Dictionary<string, string>? environmentVariables)
+    {
+        if (environmentVariables == null) return;
+
+        foreach (var kvp in environmentVariables)
+        {
+            if (startInfo.Environment.ContainsKey(kvp.Key))
+                startInfo.Environment[kvp.Key] = kvp.Value;
+            else
+                startInfo.Environment.Add(kvp.Key, kvp.Value);
+        }
     }
 }

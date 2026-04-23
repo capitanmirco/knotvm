@@ -28,18 +28,18 @@ public class DoctorCommand : Command
 
         this.Add(_fixOption);
 
-        this.SetAction((context) =>
+        this.SetAction(async (context, ct) =>
         {
             var fix = context.GetValue(_fixOption);
-            return ExecuteAsync(fix, CancellationToken.None);
+            return await ExecuteAsync(fix, ct);
         });
     }
 
-    private int ExecuteAsync(bool fix, CancellationToken ct)
+    private async Task<int> ExecuteAsync(bool fix, CancellationToken ct)
     {
-        return CommandExecutor.ExecuteWithExitCode(() =>
+        return await CommandExecutor.ExecuteWithExitCodeAsync(async () =>
         {
-            var checks = RunChecksAsync(fix, ct).GetAwaiter().GetResult();
+            var checks = await RunChecksAsync(fix, ct);
             RenderChecks(checks);
 
             var hasCriticalFailure = checks.Any(c => !c.Passed && !c.IsWarning);

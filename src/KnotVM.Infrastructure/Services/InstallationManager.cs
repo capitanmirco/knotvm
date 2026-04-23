@@ -50,8 +50,10 @@ public class InstallationManager : IInstallationManager
 
     public void UseInstallation(string alias)
     {
-        using var lockHandle = _lockManager.AcquireLock("state");
+        // Validazione input prima di acquisire il lock: evita di bloccare il filesystem
+        // per argomenti palesemente non validi.
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+        using var lockHandle = _lockManager.AcquireLock("state");
 
         if (!AliasExists(alias))
             throw new KnotVMException(KnotErrorCode.InstallationNotFound, $"Installazione '{alias}' non trovata");
@@ -62,11 +64,11 @@ public class InstallationManager : IInstallationManager
 
     public void RenameInstallation(string fromAlias, string toAlias)
     {
-        using var lockHandle = _lockManager.AcquireLock("state");
+        // Validazione input prima di acquisire il lock.
         ArgumentException.ThrowIfNullOrWhiteSpace(fromAlias);
         ArgumentException.ThrowIfNullOrWhiteSpace(toAlias);
-
         ValidateAliasOrThrow(toAlias);
+        using var lockHandle = _lockManager.AcquireLock("state");
 
         var installation = _installationsRepo.GetByAlias(fromAlias) 
             ?? throw new KnotVMException(KnotErrorCode.InstallationNotFound, $"Installazione '{fromAlias}' non trovata");
@@ -97,8 +99,9 @@ public class InstallationManager : IInstallationManager
 
     public void RemoveInstallation(string alias, bool force = false)
     {
-        using var lockHandle = _lockManager.AcquireLock("state");
+        // Validazione input prima di acquisire il lock.
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+        using var lockHandle = _lockManager.AcquireLock("state");
 
         var installation = _installationsRepo.GetByAlias(alias) 
             ?? throw new KnotVMException(KnotErrorCode.InstallationNotFound, $"Installazione '{alias}' non trovata");

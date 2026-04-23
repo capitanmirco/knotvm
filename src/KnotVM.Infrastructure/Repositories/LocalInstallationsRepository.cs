@@ -83,8 +83,14 @@ public class LocalInstallationsRepository : IInstallationsRepository
             var content = _fileSystem.ReadAllTextSafe(_config.SettingsFile).Trim();
             return string.IsNullOrWhiteSpace(content) ? null : content;
         }
-        catch
+        catch (IOException)
         {
+            // File non accessibile o rimosso concorrentemente: nessuna versione attiva.
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Permessi insufficienti per leggere il file di impostazioni.
             return null;
         }
     }
@@ -109,9 +115,19 @@ public class LocalInstallationsRepository : IInstallationsRepository
             var nodeExePath = GetNodeExecutablePath(directoryPath);
             return _processRunner.GetNodeVersion(nodeExePath);
         }
-        catch
+        catch (IOException)
         {
-            // Se qualcosa va storto, ritorna null
+            // Eseguibile non accessibile o file system error.
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Permessi insufficienti per eseguire il binario.
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            // Processo non avviabile (es: piattaforma non compatibile).
             return null;
         }
     }
