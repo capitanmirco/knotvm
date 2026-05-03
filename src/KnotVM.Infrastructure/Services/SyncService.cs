@@ -193,7 +193,8 @@ public class SyncService : ISyncService
                     var bashWrapperPath = Path.Combine(binPath, cmd);
                     // Usa percorso assoluto basato sulla directory dello script per garantire
                     // il funzionamento anche nei git hook con PATH minimale.
-                    var bashWrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nSCRIPT_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n\"$SCRIPT_DIR/{isolatedProxy}.cmd\" \"$@\"\n";
+                    // ARC-04: usa logica condivisa da ProxyGeneratorService
+                    var bashWrapperContent = ProxyGeneratorService.BuildBashWrapperContent(isolatedProxy);
 
                     // Usa encoding UTF-8 senza BOM e line ending Unix (LF)
                     var utf8NoBom = new System.Text.UTF8Encoding(false);

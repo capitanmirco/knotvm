@@ -40,7 +40,14 @@ public static class ServiceCollectionExtensions
         // Remote/Download services
         // Nota: IRemoteVersionService è già registrato tramite AddHttpClient<> sopra.
         services.AddSingleton<INodeArtifactResolver, NodeArtifactResolver>();
-        services.AddSingleton<IDownloadService, DownloadService>();
+        
+        // ARC-05: registra DownloadService tramite factory per evitare DNS staleness
+        services.AddHttpClient<IDownloadService, DownloadService>(client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(10);
+            client.DefaultRequestHeaders.Add("User-Agent", "KnotVM/1.0");
+        });
+
         services.AddSingleton<IArchiveExtractor, ArchiveExtractor>();
         
         // Installation/Versioning services

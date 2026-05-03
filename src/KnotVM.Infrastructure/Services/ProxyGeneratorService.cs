@@ -40,20 +40,17 @@ public class ProxyGeneratorService : IProxyGeneratorService
         _paths = paths;
         _fileSystem = fileSystem;
 
-        // Candidate 1: path configurato (runtime/installazione).
-        var configuredTemplateDir = _paths.GetTemplatesPath();
+        // ARC-06: ricerca template più robusta
+        var candidates = new[]
+        {
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "templates"),
+            Path.Combine(Directory.GetCurrentDirectory(), "templates"),
+            _paths.GetTemplatesPath(),
+            Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "templates"))
+        };
 
-        // Candidate 2: fallback repository root (sviluppo/test locale).
-        var currentDir = AppDomain.CurrentDomain.BaseDirectory;
-        var repositoryTemplateDir = Path.GetFullPath(Path.Combine(currentDir, "..", "..", "..", "..", "..", "templates"));
-
-        _templateSearchPaths =
-        [
-            configuredTemplateDir,
-            repositoryTemplateDir
-        ];
-
-        _templateDir = ResolveTemplateDirectory(_templateSearchPaths) ?? configuredTemplateDir;
+        _templateSearchPaths = candidates;
+        _templateDir = ResolveTemplateDirectory(_templateSearchPaths) ?? _paths.GetTemplatesPath();
     }
 
     public void GenerateGenericProxy(string commandName, string commandExe)
@@ -370,23 +367,13 @@ public class ProxyGeneratorService : IProxyGeneratorService
     /// </summary>
     private void GenerateGitBashWrapper(string proxyName, string binDir)
     {
-        // Wrapper che redirige a .cmd usando percorso assoluto basato sulla directory dello script.
-        // IMPORTANTE: usa LF (Unix line endings), non CRLF.
-        // Il percorso assoluto garantisce il funzionamento anche quando il bin dir non è nel PATH
-        // (es: in git hooks che ereditano un ambiente minimale).
-        // Non si usa 'exec' perché i file .cmd richiedono cmd.exe e non sono eseguibili
-        // tramite POSIX exec su alcuni ambienti Git Bash/MSYS2.
-        var wrapperContent = $"#!/bin/sh\n# Git Bash wrapper for KnotVM - DO NOT EDIT\nSCRIPT_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n\"$SCRIPT_DIR/{proxyName}.cmd\" \"$@\"\n";
-        
-        // Nome senza estensione (es: "nlocal-node" invece di "nlocal-node.cmd")
         var wrapperPath = Path.Combine(binDir, proxyName);
         
         // Usa encoding UTF-8 senza BOM e line ending Unix (LF)
         var utf8NoBom = new System.Text.UTF8Encoding(false);
-        var contentWithUnixLineEndings = wrapperContent.Replace("\r\n", "\n");
+        var contentWithUnixLineEndings = BuildBashWrapperContent(proxyName).Replace("\r\n", "\n");
         File.WriteAllText(wrapperPath, contentWithUnixLineEndings, utf8NoBom);
         
-        // Nota: permessi eseguibili non necessari su Windows, ma non fa male settarli
         try
         {
             _fileSystem.SetExecutablePermissions(wrapperPath);
@@ -395,6 +382,18 @@ public class ProxyGeneratorService : IProxyGeneratorService
         {
             // Ignora errori su Windows (SetExecutablePermissions potrebbe non funzionare)
         }
+    }
+
+    /// <summary>
+    /// Genera il contenuto di un wrapper bash compatibile con Git Bash.
+    /// ARC-04: logica condivisa tra Sync e ProxyGenerator.
+    /// </summary>
+    public static string BuildBashWrapperContent(string isolatedProxyName)
+    {
+        return "#!/bin/sh\n" +
+               "# Git Bash wrapper for KnotVM - DO NOT EDIT\n" +
+               "SCRIPT_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
+               $"\"$SCRIPT_DIR/{isolatedProxyName}.cmd\" \"$@\"\n";
     }
 
     private static string EscapeCSharpString(string str)

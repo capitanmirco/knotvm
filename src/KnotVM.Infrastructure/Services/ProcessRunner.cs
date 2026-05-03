@@ -266,8 +266,8 @@ public class ProcessRunner : IProcessRunner
             throw new TimeoutException($"Processo '{executablePath}' timeout dopo {timeoutMilliseconds}ms");
         }
 
-        // WaitForExit() senza argomenti garantisce flush dei buffer asincroni
-        process.WaitForExit();
+        // ROB-09: WaitForExit() senza argomenti è già implicito nel ramo else sopra
+        // o garantito dalla terminazione. La chiamata qui era ridondante.
 
         return new ProcessResult(
             process.ExitCode,

@@ -155,7 +155,11 @@ public class RemoteVersionService : IRemoteVersionService, IDisposable
 
     public void ClearCache()
     {
-        _cacheLock.Wait();
+        // ROB-05: _cacheLock.Wait() su SemaphoreSlim può causare deadlock in contesti async.
+        // ClearCache() è intrinsecamente sincrona (chiamata da CacheCommand che è sync);
+        // usiamo WaitAsync().GetAwaiter().GetResult() per essere espliciti sul blocking intenzionale
+        // e consentire future conversioni ad async senza modificare la firma pubblica.
+        _cacheLock.WaitAsync().GetAwaiter().GetResult();
         try
         {
             _memoryCache = null;

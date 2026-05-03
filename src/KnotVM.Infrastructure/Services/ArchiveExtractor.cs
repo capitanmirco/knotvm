@@ -205,12 +205,10 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa ArgumentList per evitare command injection su archivePath/destinationDirectory.
-        // --no-absolute-filenames impedisce l'estrazione di path assoluti (path traversal).
-        var args = preservePermissions
-            ? new[] { "--no-absolute-filenames", "-x", "-z", "-f", archivePath, "-C", destinationDirectory }
-            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-z", "-f", archivePath, "-C", destinationDirectory };
-
+        // BuildTarArgs gestisce le differenze GNU tar (Linux) vs BSD tar (macOS):
+        // - GNU tar: usa --no-absolute-filenames per prevenire path traversal
+        // - BSD tar (macOS): stripping path assoluti è il default, flag non supportato
+        var args = BuildTarArgs("-z", archivePath, destinationDirectory, preservePermissions);
         var result = await _processRunner.RunAsync("tar", args, timeoutMilliseconds: 300_000);
 
         if (result.ExitCode != 0)
@@ -227,12 +225,10 @@ public class ArchiveExtractor : IArchiveExtractor
         bool preservePermissions,
         CancellationToken cancellationToken)
     {
-        // Usa ArgumentList per evitare command injection su archivePath/destinationDirectory.
-        // --no-absolute-filenames impedisce l'estrazione di path assoluti (path traversal).
-        var args = preservePermissions
-            ? new[] { "--no-absolute-filenames", "-x", "-J", "-f", archivePath, "-C", destinationDirectory }
-            : new[] { "--no-absolute-filenames", "--no-same-permissions", "-x", "-J", "-f", archivePath, "-C", destinationDirectory };
-
+        // BuildTarArgs gestisce le differenze GNU tar (Linux) vs BSD tar (macOS):
+        // - GNU tar: usa --no-absolute-filenames per prevenire path traversal
+        // - BSD tar (macOS): stripping path assoluti è il default, flag non supportato
+        var args = BuildTarArgs("-J", archivePath, destinationDirectory, preservePermissions);
         var result = await _processRunner.RunAsync("tar", args, timeoutMilliseconds: 300_000);
 
         if (result.ExitCode != 0)

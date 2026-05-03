@@ -24,16 +24,19 @@ public class KnotVMException : Exception
     /// </summary>
     public string CodeString => ErrorExitCodeMap.GetCodeString(ErrorCode);
 
+    [Obsolete("Usare il costruttore con KnotErrorCode per una migliore diagnostica")]
     public KnotVMException() : base()
     {
         ErrorCode = KnotErrorCode.UnexpectedError;
     }
 
+    [Obsolete("Usare il costruttore con KnotErrorCode per una migliore diagnostica")]
     public KnotVMException(string message) : base(message)
     {
         ErrorCode = KnotErrorCode.UnexpectedError;
     }
 
+    [Obsolete("Usare il costruttore con KnotErrorCode per una migliore diagnostica")]
     public KnotVMException(string message, Exception innerException) : base(message, innerException)
     {
         ErrorCode = KnotErrorCode.UnexpectedError;
