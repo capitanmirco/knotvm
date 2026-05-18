@@ -1,4 +1,6 @@
 using FluentAssertions;
+using KnotVM.Core.Enums;
+using KnotVM.Core.Exceptions;
 using KnotVM.Core.Interfaces;
 using KnotVM.Core.Models;
 using KnotVM.Infrastructure.Services;
@@ -232,6 +234,64 @@ public class UpgradeDowngradeServiceTests
         result.Success.Should().BeFalse();
         result.ErrorMessage.Should().Be("Artifact non disponibile");
         _installManagerMock.Verify(x => x.UseInstallation(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ReplaceVersionAsync_WhenWasActive_AndUseInstallationThrowsKnotVMException_Propagates()
+    {
+        _installManagerMock.Setup(x => x.RemoveInstallation("lts", true));
+        _installServiceMock
+            .Setup(x => x.InstallAsync("22.14.0", "lts", false, It.IsAny<IProgress<DownloadProgress>?>(), default))
+            .ReturnsAsync(new InstallationPrepareResult(true, "lts", "22.14.0", "/path/lts"));
+        _installManagerMock
+            .Setup(x => x.UseInstallation("lts"))
+            .Throws(new KnotVMException(KnotErrorCode.SyncFailed, "Sync fallita"));
+
+        var act = async () => await _sut.ReplaceVersionAsync("lts", wasActive: true, "22.14.0");
+
+        await act.Should().ThrowAsync<KnotVMException>()
+            .Where(e => e.ErrorCode == KnotErrorCode.SyncFailed);
+    }
+
+    [Fact]
+    public async Task ReplaceVersionAsync_WhenWasActive_AndUseInstallationThrowsGenericException_WrapsAsInstallationFailed()
+    {
+        _installManagerMock.Setup(x => x.RemoveInstallation("lts", true));
+        _installServiceMock
+            .Setup(x => x.InstallAsync("22.14.0", "lts", false, It.IsAny<IProgress<DownloadProgress>?>(), default))
+            .ReturnsAsync(new InstallationPrepareResult(true, "lts", "22.14.0", "/path/lts"));
+        _installManagerMock
+            .Setup(x => x.UseInstallation("lts"))
+            .Throws(new InvalidOperationException("Operazione non valida"));
+
+        var act = async () => await _sut.ReplaceVersionAsync("lts", wasActive: true, "22.14.0");
+
+        await act.Should().ThrowAsync<KnotVMException>()
+            .Where(e => e.ErrorCode == KnotErrorCode.InstallationFailed);
+    }
+
+    [Fact]
+    public async Task GetRecentLtsVersionsAsync_WhenEmptyLtsList_ReturnsEmpty()
+    {
+        _remoteServiceMock
+            .Setup(x => x.GetLtsVersionsAsync(false, default))
+            .ReturnsAsync([]);
+
+        var result = await _sut.GetRecentLtsVersionsAsync("22.14.0");
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetRemoteVersionsAsync_WhenEmptyList_ReturnsEmpty()
+    {
+        _remoteServiceMock
+            .Setup(x => x.GetAvailableVersionsAsync(false, default))
+            .ReturnsAsync([]);
+
+        var result = await _sut.GetRemoteVersionsAsync(10);
+
+        result.Should().BeEmpty();
     }
 
     #endregion
