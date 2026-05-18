@@ -80,7 +80,10 @@ public class CacheService : ICacheService
             return;
         }
 
-        var cutoffDate = DateTime.Now.AddDays(-olderThanDays);
+        // ROB-08: usare UtcNow per coerenza con FileSystemService.GetFileLastWriteTime
+        // che restituisce File.GetLastWriteTimeUtc. Mescolare Now e UtcNow causa
+        // confronti errati con timezone non-UTC.
+        var cutoffDate = DateTime.UtcNow.AddDays(-olderThanDays);
         var files = Directory.GetFiles(_cachePath);
         
         foreach (var file in files)
@@ -88,7 +91,7 @@ public class CacheService : ICacheService
             try
             {
                 var info = new FileInfo(file);
-                if (info.LastWriteTime < cutoffDate)
+                if (info.LastWriteTimeUtc < cutoffDate)
                 {
                     File.Delete(file);
                 }

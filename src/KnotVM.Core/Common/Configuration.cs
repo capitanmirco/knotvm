@@ -83,10 +83,18 @@ public record Configuration(
                     KnotErrorCode.InvalidArgument,
                     $"La variabile d'ambiente {KnotHomeEnvVar} deve contenere un percorso assoluto. Valore attuale: '{knotHome}'");
 
-            if (knotHome.IndexOfAny(['"', '\n', '\r']) >= 0)
+            // SEC-04: validazione completa — null-byte, caratteri di controllo ASCII (0x00-0x1F),
+            // virgolette e lunghezza massima path (4096 caratteri per compatibilità cross-platform).
+            const int MaxPathLength = 4096;
+            if (knotHome.Length > MaxPathLength)
                 throw new KnotVMException(
                     KnotErrorCode.InvalidArgument,
-                    $"La variabile d'ambiente {KnotHomeEnvVar} contiene caratteri non validi (\", \\n, \\r)");
+                    $"La variabile d'ambiente {KnotHomeEnvVar} supera la lunghezza massima consentita ({MaxPathLength} caratteri)");
+
+            if (knotHome.Any(c => c < 0x20 || c == '"'))
+                throw new KnotVMException(
+                    KnotErrorCode.InvalidArgument,
+                    $"La variabile d'ambiente {KnotHomeEnvVar} contiene caratteri non validi (caratteri di controllo o virgolette)");
 
             return knotHome;
         }
@@ -156,24 +164,29 @@ public record Configuration(
     }
 
     /// <summary>
-    /// Crea configurazione legacy (compatibilità con versione PowerShell node-local solo per sviluppo/test Windows).
-    /// DEPRECATED: Usare Create() che gestisce automaticamente OS e KNOT_HOME.
+    /// Crea un'istanza di configurazione per un percorso specifico.
+    /// Utile principalmente per test di integrazione isolati.
     /// </summary>
-    [Obsolete("Usare Configuration.Create() che gestisce OS e KNOT_HOME automaticamente")]
+    public static Configuration Create(string knotHome)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(knotHome);
+        return new Configuration(
+            AppDataPath: knotHome,
+            VersionsPath: Path.Combine(knotHome, "versions"),
+            BinPath: Path.Combine(knotHome, "bin"),
+            CachePath: Path.Combine(knotHome, "cache"),
+            SettingsFile: Path.Combine(knotHome, "settings.txt"),
+            TemplatesPath: Path.Combine(knotHome, "templates"),
+            LocksPath: Path.Combine(knotHome, "locks")
+        );
+    }
+
+    [Obsolete("Usare Configuration.Instance o Configuration.Create(path)")]
     public static Configuration ForNodeLocal()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var rootPath = Path.Combine(appDataPath, DefaultDirectoryName);
-        
-        return new Configuration(
-            AppDataPath: rootPath,
-            VersionsPath: Path.Combine(rootPath, "versions"),
-            BinPath: Path.Combine(rootPath, "bin"),
-            CachePath: Path.Combine(rootPath, "cache"),
-            SettingsFile: Path.Combine(rootPath, "settings.txt"),
-            TemplatesPath: Path.Combine(rootPath, "templates"),
-            LocksPath: Path.Combine(rootPath, "locks")
-        );
+        return Create(rootPath);
     }
 
     /// <summary>

@@ -15,6 +15,12 @@ public class LocalInstallationsRepository : IInstallationsRepository
     private readonly IProcessRunner _processRunner;
     private readonly IFileSystemService _fileSystem;
 
+    // ROB-02: cache versioni per sessione — evita N processi node -v ad ogni GetAll().
+    // Chiave: path assoluto directory installazione, Valore: versione node (es. "20.11.0").
+    // Invalidata quando un'installazione viene rimossa.
+    private readonly Dictionary<string, string?> _versionCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _versionCacheLock = new();
+
     public LocalInstallationsRepository(
         Configuration config,
         IPlatformService platformService,
@@ -83,8 +89,14 @@ public class LocalInstallationsRepository : IInstallationsRepository
             var content = _fileSystem.ReadAllTextSafe(_config.SettingsFile).Trim();
             return string.IsNullOrWhiteSpace(content) ? null : content;
         }
-        catch
+        catch (IOException)
         {
+            // File non accessibile o rimosso concorrentemente: nessuna versione attiva.
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Permessi insufficienti per leggere il file di impostazioni.
             return null;
         }
     }
@@ -104,15 +116,40 @@ public class LocalInstallationsRepository : IInstallationsRepository
     /// <returns>Versione (es: "20.11.0") o null se fallisce</returns>
     private string? GetNodeVersion(string directoryPath)
     {
+        // ROB-02: prima controlla la cache per evitare di rilanciare node -v
+        lock (_versionCacheLock)
+        {
+            if (_versionCache.TryGetValue(directoryPath, out var cached))
+                return cached;
+        }
+
+        string? version;
         try
         {
             var nodeExePath = GetNodeExecutablePath(directoryPath);
-            return _processRunner.GetNodeVersion(nodeExePath);
+            version = _processRunner.GetNodeVersion(nodeExePath);
         }
-        catch
+        catch (IOException) { version = null; }
+        catch (UnauthorizedAccessException) { version = null; }
+        catch (InvalidOperationException) { version = null; }
+
+        lock (_versionCacheLock)
         {
-            // Se qualcosa va storto, ritorna null
-            return null;
+            _versionCache[directoryPath] = version;
+        }
+
+        return version;
+    }
+
+    /// <summary>
+    /// Invalida la cache della versione per un alias rimosso.
+    /// </summary>
+    private void InvalidateVersionCache(string alias)
+    {
+        var installPath = Path.Combine(_config.VersionsPath, alias);
+        lock (_versionCacheLock)
+        {
+            _versionCache.Remove(installPath);
         }
     }
 
@@ -136,9 +173,18 @@ public class LocalInstallationsRepository : IInstallationsRepository
         // No-op: il repository legge sempre lo stato dal filesystem
     }
 
+    /// <summary>
+    /// Notifica il repository che un'installazione è stata rimossa.
+    /// La rimozione fisica è delegata all'Infrastructure (InstallationService).
+    /// </summary>
     public bool Remove(string alias)
     {
-        // No-op: la rimozione fisica è gestita da InstallationService
+        if (string.IsNullOrWhiteSpace(alias)) return false;
+
+        // No-op: la rimozione fisica è gestita da InstallationService.
+        // Invalidiamo la cache versione per questo alias così la prossima
+        // GetAll() non restituisce dati obsoleti (ROB-02).
+        InvalidateVersionCache(alias);
         return true;
     }
 

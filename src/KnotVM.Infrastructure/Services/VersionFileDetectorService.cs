@@ -46,21 +46,14 @@ public class VersionFileDetectorService(IFileSystemService fileSystem) : IVersio
         string? version = null;
         string? projectName = null;
 
-        // Priorità versione: package.json > .nvmrc > .node-version
-        var packageJsonPath = Path.Combine(directory, "package.json");
-        if (_fileSystem.FileExists(packageJsonPath))
-        {
-            version = await ReadPackageJsonEnginesAsync(packageJsonPath).ConfigureAwait(false);
-            projectName = await ReadPackageJsonNameAsync(packageJsonPath).ConfigureAwait(false);
-        }
+        // ROB-04: priorità versione allineata con DetectVersionAsync:
+        // .nvmrc > .node-version > package.json
+        // Il nome progetto viene letto da package.json indipendentemente dalla versione.
 
-        if (version == null)
+        var nvmrcPath = Path.Combine(directory, ".nvmrc");
+        if (_fileSystem.FileExists(nvmrcPath))
         {
-            var nvmrcPath = Path.Combine(directory, ".nvmrc");
-            if (_fileSystem.FileExists(nvmrcPath))
-            {
-                version = await ReadNvmrcAsync(nvmrcPath).ConfigureAwait(false);
-            }
+            version = await ReadNvmrcAsync(nvmrcPath).ConfigureAwait(false);
         }
 
         if (version == null)
@@ -70,6 +63,17 @@ public class VersionFileDetectorService(IFileSystemService fileSystem) : IVersio
             {
                 version = await ReadNodeVersionAsync(nodeVersionPath).ConfigureAwait(false);
             }
+        }
+
+        var packageJsonPath = Path.Combine(directory, "package.json");
+        if (_fileSystem.FileExists(packageJsonPath))
+        {
+            if (version == null)
+            {
+                version = await ReadPackageJsonEnginesAsync(packageJsonPath).ConfigureAwait(false);
+            }
+            // Il nome progetto viene sempre letto da package.json se disponibile
+            projectName = await ReadPackageJsonNameAsync(packageJsonPath).ConfigureAwait(false);
         }
 
         return new ProjectContext(version, projectName);
@@ -122,7 +126,16 @@ public class VersionFileDetectorService(IFileSystemService fileSystem) : IVersio
                 if (json.RootElement.TryGetProperty("engines", out var engines) &&
                     engines.TryGetProperty("node", out var nodeVersion))
                 {
-                    return nodeVersion.GetString();
+                    var rawVersion = nodeVersion.GetString();
+                    if (string.IsNullOrWhiteSpace(rawVersion)) return null;
+
+                    // SEC-05: estrae la versione minima se è un range (es. ">=18.0.0" -> "18.0.0")
+                    var match = Regex.Match(rawVersion, @"(\d+\.\d+\.\d+)");
+                    if (match.Success) return match.Value;
+
+                    // Se non è un semver completo, estrae almeno la major (es. ">=18" -> "18")
+                    var majorMatch = Regex.Match(rawVersion, @"(\d+)");
+                    return majorMatch.Success ? majorMatch.Value : rawVersion;
                 }
 
                 return null;

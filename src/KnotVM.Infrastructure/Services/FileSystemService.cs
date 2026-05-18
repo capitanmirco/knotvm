@@ -248,15 +248,18 @@ public class FileSystemService : IFileSystemService
     {
         try
         {
+            // SEC-03: usa ArgumentList invece di Arguments interpolato per evitare
+            // problemi con path contenenti spazi, virgolette o caratteri speciali.
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "chmod",
-                Arguments = $"+x \"{filePath}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+            startInfo.ArgumentList.Add("+x");
+            startInfo.ArgumentList.Add(filePath);
 
             using var process = System.Diagnostics.Process.Start(startInfo);
             if (process == null)

@@ -7,7 +7,7 @@ using Xunit;
 
 namespace KnotVM.Tests.Infrastructure;
 
-public class FileSystemServiceTests
+public class FileSystemServiceTests : IDisposable
 {
     private readonly Mock<IPlatformService> _platformMock;
     private readonly FileSystemService _sut;

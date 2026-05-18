@@ -52,7 +52,9 @@ public class InstallationService : IInstallationService
         IProgress<DownloadProgress>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
-        using var lockHandle = _lockManager.AcquireLock("state");
+        // ROB-01: Il lock NON viene acquisito qui per non bloccare download e operazioni I/O
+        // che possono durare fino a 10 minuti. Il lock viene acquisito solo nelle fasi
+        // critiche di scrittura filesystem (step 7-11) più avanti nel metodo.
 
         // 1. Resolve versione da pattern
         var remoteVersion = await _remoteVersions.ResolveVersionAsync(versionPattern, cancellationToken: cancellationToken);
@@ -224,7 +226,9 @@ public class InstallationService : IInstallationService
 
         var extractedRootDir = extractedDirs[0];
 
-        // 9. Muovi in installazione finale
+        // 9. Muovi in installazione finale — acquisci lock solo ora (operazione filesystem critica)
+        using var lockHandle = _lockManager.AcquireLock("state");
+
         var finalInstallPath = GetInstallationPath(finalAlias);
 
         // Rimuovi installazione esistente se force
