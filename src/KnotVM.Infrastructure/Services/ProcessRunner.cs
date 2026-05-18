@@ -344,11 +344,6 @@ public class ProcessRunner : IProcessRunner
         if (environmentVariables == null) return;
 
         foreach (var kvp in environmentVariables)
-        {
-            if (startInfo.Environment.ContainsKey(kvp.Key))
-                startInfo.Environment[kvp.Key] = kvp.Value;
-            else
-                startInfo.Environment.Add(kvp.Key, kvp.Value);
-        }
+            startInfo.Environment[kvp.Key] = kvp.Value;
     }
 }

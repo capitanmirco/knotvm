@@ -179,17 +179,17 @@ public class RemoteVersionService : IRemoteVersionService, IDisposable
         _cacheLock.Dispose();
     }
 
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private RemoteVersion[] ParseVersionsJson(string json)
     {
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            };
-
-            var items = JsonSerializer.Deserialize<NodeDistIndexItem[]>(json, options);
+            var items = JsonSerializer.Deserialize<NodeDistIndexItem[]>(json, _jsonOptions);
             
             if (items == null || items.Length == 0)
                 throw new KnotVMException(KnotErrorCode.RemoteApiFailed, "Index.json vuoto o non valido");
