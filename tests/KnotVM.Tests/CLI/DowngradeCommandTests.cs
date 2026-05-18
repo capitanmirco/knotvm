@@ -203,4 +203,101 @@ public class DowngradeCommandTests
         // Assert
         exitCode.Should().NotBe(0);
     }
+
+    [Fact]
+    public async Task Downgrade_LtsAlias_WhenNoLtsVersionsAvailable_ReturnsRemoteApiError()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("lts", "22.14.0", "/test/versions/lts", Use: false);
+        repositoryMock.Setup(x => x.GetByAlias("lts")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("lts")).Returns(true);
+        upgradeServiceMock
+            .Setup(x => x.GetRecentLtsVersionsAsync("22.14.0", 15, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var command = new DowngradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act — nessun --target: entra nel flusso interattivo LTS
+        var exitCode = await rootCommand.Parse(["downgrade", "lts"]).InvokeAsync();
+
+        // Assert: nessuna versione → errore RemoteApiFailed
+        exitCode.Should().NotBe(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>(),
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Downgrade_WithTargetHavingLeadingV_StripsVBeforePassingToService()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("lts", "22.14.0", "/test/versions/lts", Use: false);
+        repositoryMock.Setup(x => x.GetByAlias("lts")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("lts")).Returns(true);
+
+        var expectedResult = new InstallationPrepareResult(true, "lts", "20.18.0", "/test/versions/lts");
+        upgradeServiceMock
+            .Setup(x => x.ReplaceVersionAsync("lts", false, "20.18.0",
+                It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        var command = new DowngradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act — passiamo "v20.18.0" con la 'v' iniziale
+        var exitCode = await rootCommand.Parse(["downgrade", "lts", "--target", "v20.18.0", "--yes"]).InvokeAsync();
+
+        // Assert: il servizio deve ricevere "20.18.0" (senza la 'v')
+        exitCode.Should().Be(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            "lts", false, "20.18.0",
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Downgrade_WithTarget_BypassesInteractiveSelection_AndNeverCallsGetRecentLts()
+    {
+        // Verifica che --target bypassa completamente GetRecentLtsVersionsAsync
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("lts", "22.14.0", "/test/versions/lts", Use: false);
+        repositoryMock.Setup(x => x.GetByAlias("lts")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("lts")).Returns(true);
+
+        var expectedResult = new InstallationPrepareResult(true, "lts", "20.18.0", "/test/versions/lts");
+        upgradeServiceMock
+            .Setup(x => x.ReplaceVersionAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>(),
+                It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        var command = new DowngradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        await rootCommand.Parse(["downgrade", "lts", "--target", "20.18.0", "--yes"]).InvokeAsync();
+
+        // Con --target, GetRecentLtsVersionsAsync NON deve essere chiamato
+        upgradeServiceMock.Verify(x => x.GetRecentLtsVersionsAsync(
+            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        // ReplaceVersionAsync deve essere chiamato con la versione target corretta
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            "lts", false, "20.18.0",
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
