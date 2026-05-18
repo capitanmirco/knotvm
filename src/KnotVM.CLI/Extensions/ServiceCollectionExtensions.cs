@@ -23,15 +23,12 @@ public static class ServiceCollectionExtensions
         configuration.EnsureDirectoriesExist();
         services.AddSingleton(configuration);
         
-        // HttpClient con configurazione
-        services.AddSingleton(sp =>
+        // HttpClient tramite IHttpClientFactory: evita DNS blindness e socket exhaustion
+        // del pattern singleton manuale. Timeout e User-Agent configurati centralmente.
+        services.AddHttpClient<IRemoteVersionService, RemoteVersionService>(client =>
         {
-            var httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromMinutes(10)
-            };
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "KnotVM/1.0");
-            return httpClient;
+            client.Timeout = TimeSpan.FromMinutes(10);
+            client.DefaultRequestHeaders.Add("User-Agent", "KnotVM/1.0");
         });
         
         // Core services
@@ -41,9 +38,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProcessRunner, ProcessRunner>();
         
         // Remote/Download services
-        services.AddSingleton<IRemoteVersionService, RemoteVersionService>();
+        // Nota: IRemoteVersionService è già registrato tramite AddHttpClient<> sopra.
         services.AddSingleton<INodeArtifactResolver, NodeArtifactResolver>();
-        services.AddSingleton<IDownloadService, DownloadService>();
+        
+        // ARC-05: registra DownloadService tramite factory per evitare DNS staleness
+        services.AddHttpClient<IDownloadService, DownloadService>(client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(10);
+            client.DefaultRequestHeaders.Add("User-Agent", "KnotVM/1.0");
+        });
+
         services.AddSingleton<IArchiveExtractor, ArchiveExtractor>();
         
         // Installation/Versioning services

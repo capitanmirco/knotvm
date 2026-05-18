@@ -117,12 +117,9 @@ public class LockManager : ILockManager
                 return true;
         }
 
-        // Verifica se file lock esiste su disco
+        // SEC-06: Tenta di aprire atomatiticamente per vedere se locked.
+        // Previene race condition TOCTOU (Time-of-Check to Time-of-Use).
         var lockFilePath = GetLockFilePath(lockName);
-        if (!_fileSystem.FileExists(lockFilePath))
-            return false;
-
-        // Tenta di aprire per vedere se locked
         try
         {
             using var stream = new FileStream(
@@ -131,11 +128,15 @@ public class LockManager : ILockManager
                 FileAccess.Read,
                 FileShare.None
             );
-            return false; // Se aperto, non è locked
+            return false; // Se aperto con Share.None, non era locked da altri
+        }
+        catch (FileNotFoundException)
+        {
+            return false; // File rimosso nel frattempo
         }
         catch (IOException)
         {
-            return true; // Se IOException, è locked
+            return true; // Se IOException (sharing violation), è locked
         }
         catch
         {

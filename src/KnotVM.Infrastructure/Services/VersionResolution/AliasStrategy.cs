@@ -1,6 +1,7 @@
 using KnotVM.Core.Enums;
 using KnotVM.Core.Exceptions;
 using KnotVM.Core.Interfaces;
+using KnotVM.Core.Models;
 
 namespace KnotVM.Infrastructure.Services.VersionResolution;
 
@@ -13,18 +14,15 @@ public class AliasStrategy(IInstallationsRepository installationsRepository) : I
     /// <inheritdoc />
     public bool CanHandle(string versionInput)
     {
-        var installations = installationsRepository.GetAll();
-        return installations.Any(i => i.Alias.Equals(versionInput, StringComparison.OrdinalIgnoreCase));
+        // Evita di chiamare GetAll() due volte: delega la ricerca a TryFind
+        // che viene poi riutilizzata da ResolveAsync.
+        return TryFind(versionInput, out _);
     }
 
     /// <inheritdoc />
     public Task<string> ResolveAsync(string versionInput, CancellationToken cancellationToken = default)
     {
-        var installations = installationsRepository.GetAll();
-        var installation = installations.FirstOrDefault(
-            i => i.Alias.Equals(versionInput, StringComparison.OrdinalIgnoreCase));
-
-        if (installation == null)
+        if (!TryFind(versionInput, out var installation) || installation == null)
         {
             throw new KnotVMException(
                 KnotErrorCode.InstallationNotFound,
@@ -32,5 +30,17 @@ public class AliasStrategy(IInstallationsRepository installationsRepository) : I
         }
 
         return Task.FromResult(installation.Version);
+    }
+
+    /// <summary>
+    /// Cerca l'alias nelle installazioni locali con una singola chiamata a GetAll().
+    /// Riutilizzato sia da CanHandle che da ResolveAsync per evitare doppie scansioni.
+    /// </summary>
+    private bool TryFind(string versionInput, out Installation? installation)
+    {
+        var installations = installationsRepository.GetAll();
+        installation = installations.FirstOrDefault(
+            i => i.Alias.Equals(versionInput, StringComparison.OrdinalIgnoreCase));
+        return installation != null;
     }
 }

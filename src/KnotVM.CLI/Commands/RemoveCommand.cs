@@ -170,17 +170,22 @@ public class RemoveCommand : Command
         }
         else // Seleziona quali rimuovere
         {
-            var selected = AnsiConsole.Prompt(
-                new MultiSelectionPrompt<string>()
+            var prompt = new MultiSelectionPrompt<string>()
                     .Title("Seleziona le installazioni da rimuovere:")
                     .Required()
-                    .InstructionsText("[grey](Premi [blue]<spazio>[/] per selezionare, [green]<invio>[/] per confermare)[/]")
-                    .AddChoices(installations.Select(i => 
-                        i.Use ? $"{i.Alias} [green](attiva)[/]" : i.Alias)));
+                    .InstructionsText("[grey](Premi [blue]<spazio>[/] per selezionare, [green]<invio>[/] per confermare)[/]");
 
-            // Estrai gli alias dalle scelte (rimuovendo il suffisso "(attiva)")
-            var selectedAliases = selected.Select(s => 
-                s.Replace(" [green](attiva)[/]", "").Trim()).ToList();
+            // QUA-06: usa un dizionario per mappare la stringa visualizzata all'alias reale
+            var displayMap = new Dictionary<string, string>();
+            foreach (var i in installations)
+            {
+                var display = i.Use ? $"{i.Alias} [green](attiva)[/]" : i.Alias;
+                displayMap[display] = i.Alias;
+                prompt.AddChoice(display);
+            }
+
+            var selected = AnsiConsole.Prompt(prompt);
+            var selectedAliases = selected.Select(s => displayMap[s]).ToList();
 
             toRemove = installations
                 .Where(i => selectedAliases.Contains(i.Alias))

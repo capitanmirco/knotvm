@@ -14,7 +14,7 @@ public class DownloadService : IDownloadService
     private const int DefaultTimeoutSeconds = 300; // 5 minuti
     private const int MaxRetryAttempts = 3;
     private const int RetryBaseDelayMilliseconds = 500;
-    private const int BufferSize = 8192;
+    private const int BufferSize = 81920; // 80KB per performance migliori sui download grandi (PER-03)
 
     private readonly IFileSystemService _fileSystem;
     private readonly HttpClient _httpClient;
@@ -221,11 +221,21 @@ public class DownloadService : IDownloadService
                 }
             }
 
-            return null;
+            throw new KnotVMException(
+                KnotErrorCode.DownloadFailed, 
+                $"L'artefatto '{artifactFileName}' non è presente nel file dei checksum.");
         }
-        catch
+        catch (HttpRequestException ex)
         {
-            return null;
+            throw new KnotVMException(
+                KnotErrorCode.DownloadFailed, 
+                $"Impossibile recuperare il file dei checksum: {ex.Message}", ex);
+        }
+        catch (Exception ex) when (ex is not KnotVMException)
+        {
+            throw new KnotVMException(
+                KnotErrorCode.UnexpectedError, 
+                $"Errore inatteso durante il recupero dei checksum: {ex.Message}", ex);
         }
     }
 

@@ -75,6 +75,11 @@ public class ConfigurationTests
     [InlineData("/Users/test user/Library/Application Support/node-local")]
     public void Configuration_ShouldHandlePathsWithSpaces(string pathWithSpaces)
     {
+        // Path Windows-style (C:\...) sono rooted SOLO su Windows.
+        // Su Linux/macOS Path.IsPathRooted restituisce false per questi path,
+        // perciò Configuration li rifiuta correttamente. Skip su non-Windows.
+        if (!OperatingSystem.IsWindows() && pathWithSpaces.Length >= 2 && pathWithSpaces[1] == ':')
+            return;
         // Arrange
         var originalValue = Environment.GetEnvironmentVariable(Configuration.KnotHomeEnvVar);
         

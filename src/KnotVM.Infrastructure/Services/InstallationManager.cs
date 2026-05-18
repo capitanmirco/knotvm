@@ -50,8 +50,10 @@ public class InstallationManager : IInstallationManager
 
     public void UseInstallation(string alias)
     {
-        using var lockHandle = _lockManager.AcquireLock("state");
+        // Validazione input prima di acquisire il lock: evita di bloccare il filesystem
+        // per argomenti palesemente non validi.
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+        using var lockHandle = _lockManager.AcquireLock("state");
 
         if (!AliasExists(alias))
             throw new KnotVMException(KnotErrorCode.InstallationNotFound, $"Installazione '{alias}' non trovata");
@@ -62,11 +64,11 @@ public class InstallationManager : IInstallationManager
 
     public void RenameInstallation(string fromAlias, string toAlias)
     {
-        using var lockHandle = _lockManager.AcquireLock("state");
+        // Validazione input prima di acquisire il lock.
         ArgumentException.ThrowIfNullOrWhiteSpace(fromAlias);
         ArgumentException.ThrowIfNullOrWhiteSpace(toAlias);
-
         ValidateAliasOrThrow(toAlias);
+        using var lockHandle = _lockManager.AcquireLock("state");
 
         var installation = _installationsRepo.GetByAlias(fromAlias) 
             ?? throw new KnotVMException(KnotErrorCode.InstallationNotFound, $"Installazione '{fromAlias}' non trovata");
@@ -97,8 +99,9 @@ public class InstallationManager : IInstallationManager
 
     public void RemoveInstallation(string alias, bool force = false)
     {
-        using var lockHandle = _lockManager.AcquireLock("state");
+        // Validazione input prima di acquisire il lock.
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+        using var lockHandle = _lockManager.AcquireLock("state");
 
         var installation = _installationsRepo.GetByAlias(alias) 
             ?? throw new KnotVMException(KnotErrorCode.InstallationNotFound, $"Installazione '{alias}' non trovata");
@@ -112,7 +115,9 @@ public class InstallationManager : IInstallationManager
         try
         {
             var installPath = _paths.GetInstallationPath(alias);
-            var nodeExePath = Path.Combine(installPath, "node.exe");
+            // ROB-03: usa GetNodeExecutablePath per gestire correttamente Windows (node.exe)
+            // e Linux/macOS (bin/node) invece del path hardcoded "node.exe"
+            var nodeExePath = _paths.GetNodeExecutablePath(installPath);
             var runningProcesses = _processRunner.FindRunningProcesses(nodeExePath);
 
             if (runningProcesses.Count > 0)
@@ -143,9 +148,12 @@ public class InstallationManager : IInstallationManager
                 ex
             );
         }
-        catch (IOException ex) when (ex.Message.Contains("being used by another process") || 
-                                      ex.Message.Contains("because it is being used") ||
-                                      ex.Message.Contains("in uso"))
+        catch (IOException ex) when (
+            // QUA-02: usa HResult invece di string matching su messaggi localizzati.
+            // HResult 0x80070020 = ERROR_SHARING_VIOLATION (file in uso da altro processo)
+            // HResult 0x80070021 = ERROR_LOCK_VIOLATION (sezione del file bloccata)
+            // Questi codici sono stabili indipendentemente dalla lingua del sistema operativo.
+            (ex.HResult & 0xFFFF) is 0x0020 or 0x0021)
         {
             throw new KnotVMHintException(
                 KnotErrorCode.InstallationFailed,
