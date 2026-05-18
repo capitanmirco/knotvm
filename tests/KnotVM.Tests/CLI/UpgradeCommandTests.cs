@@ -1,0 +1,203 @@
+using System.CommandLine;
+using FluentAssertions;
+using KnotVM.CLI.Commands;
+using KnotVM.Core.Interfaces;
+using KnotVM.Core.Models;
+using Moq;
+using Spectre.Console;
+using Spectre.Console.Testing;
+using Xunit;
+
+namespace KnotVM.Tests.CLI;
+
+[Collection("Sequential")]
+public class UpgradeCommandTests
+{
+    private static TestConsole SetupTestConsole()
+    {
+        var testConsole = new TestConsole();
+        testConsole.Profile.Capabilities.Interactive = false;
+        AnsiConsole.Console = testConsole;
+        return testConsole;
+    }
+
+    [Fact]
+    public async Task Upgrade_LtsAlias_WhenAlreadyLatest_PrintsMessageAndExitsZero()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("lts", "22.14.0", "/test/versions/lts", Use: false);
+        repositoryMock.Setup(x => x.GetByAlias("lts")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("lts")).Returns(true);
+        upgradeServiceMock
+            .Setup(x => x.GetLatestLtsVersionAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteVersion("22.14.0", "Jod", "2025-01-01", []));
+
+        var command = new UpgradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act
+        var exitCode = await rootCommand.Parse(["upgrade", "lts"]).InvokeAsync();
+
+        // Assert
+        exitCode.Should().Be(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>(),
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Upgrade_LtsAlias_WithTarget_CallsReplaceVersionAsync()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("lts", "22.13.0", "/test/versions/lts", Use: false);
+        repositoryMock.Setup(x => x.GetByAlias("lts")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("lts")).Returns(true);
+
+        var expectedResult = new InstallationPrepareResult(true, "lts", "22.14.0", "/test/versions/lts");
+        upgradeServiceMock
+            .Setup(x => x.ReplaceVersionAsync("lts", false, "22.14.0",
+                It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        var command = new UpgradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act
+        var exitCode = await rootCommand.Parse(["upgrade", "lts", "--target", "22.14.0", "--yes"]).InvokeAsync();
+
+        // Assert
+        exitCode.Should().Be(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            "lts", false, "22.14.0",
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Upgrade_NonLtsAlias_WithTarget_CallsReplaceVersionAsync()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("production", "20.11.0", "/test/versions/production", Use: true);
+        repositoryMock.Setup(x => x.GetByAlias("production")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("production")).Returns(false);
+
+        var expectedResult = new InstallationPrepareResult(true, "production", "22.14.0", "/test/versions/production");
+        upgradeServiceMock
+            .Setup(x => x.ReplaceVersionAsync("production", true, "22.14.0",
+                It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        var command = new UpgradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act
+        var exitCode = await rootCommand.Parse(["upgrade", "production", "--target", "22.14.0", "--yes"]).InvokeAsync();
+
+        // Assert
+        exitCode.Should().Be(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            "production", true, "22.14.0",
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Upgrade_WithActiveAlias_PassesWasActiveTrue()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("lts", "22.13.0", "/test/versions/lts", Use: true);
+        repositoryMock.Setup(x => x.GetByAlias("lts")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("lts")).Returns(true);
+
+        var expectedResult = new InstallationPrepareResult(true, "lts", "22.14.0", "/test/versions/lts");
+        upgradeServiceMock
+            .Setup(x => x.ReplaceVersionAsync("lts", true, "22.14.0",
+                It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        var command = new UpgradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act
+        var exitCode = await rootCommand.Parse(["upgrade", "lts", "--target", "22.14.0", "--yes"]).InvokeAsync();
+
+        // Assert
+        exitCode.Should().Be(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            "lts", true, "22.14.0",
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Upgrade_WithNonExistentAlias_ReturnsErrorCode()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        repositoryMock.Setup(x => x.GetByAlias("nonexistent")).Returns((Installation?)null);
+
+        var command = new UpgradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act
+        var exitCode = await rootCommand.Parse(["upgrade", "nonexistent", "--target", "22.14.0"]).InvokeAsync();
+
+        // Assert
+        exitCode.Should().NotBe(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>(),
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Upgrade_WithSameTargetVersion_PrintsMessageAndExitsZero()
+    {
+        // Arrange
+        var upgradeServiceMock = new Mock<IUpgradeDowngradeService>();
+        var repositoryMock = new Mock<IInstallationsRepository>();
+
+        var installation = new Installation("production", "22.14.0", "/test/versions/production", Use: false);
+        repositoryMock.Setup(x => x.GetByAlias("production")).Returns(installation);
+
+        upgradeServiceMock.Setup(x => x.IsLtsAlias("production")).Returns(false);
+
+        var command = new UpgradeCommand(upgradeServiceMock.Object, repositoryMock.Object);
+        var rootCommand = new RootCommand();
+        rootCommand.Subcommands.Add(command);
+        SetupTestConsole();
+
+        // Act
+        var exitCode = await rootCommand.Parse(["upgrade", "production", "--target", "22.14.0", "--yes"]).InvokeAsync();
+
+        // Assert
+        exitCode.Should().Be(0);
+        upgradeServiceMock.Verify(x => x.ReplaceVersionAsync(
+            It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>(),
+            It.IsAny<IProgress<DownloadProgress>?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+}

@@ -30,7 +30,9 @@ class Program
             serviceProvider.GetRequiredService<VersionCommand>(),
             serviceProvider.GetRequiredService<AutoDetectCommand>(),
             serviceProvider.GetRequiredService<CompletionCommand>(),
-            serviceProvider.GetRequiredService<DoctorCommand>()
+            serviceProvider.GetRequiredService<DoctorCommand>(),
+            serviceProvider.GetRequiredService<UpgradeCommand>(),
+            serviceProvider.GetRequiredService<DowngradeCommand>()
         })
         {
             rootCommand.Subcommands.Add(command);

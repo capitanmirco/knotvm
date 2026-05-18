@@ -73,6 +73,9 @@ public static class ServiceCollectionExtensions
         // Doctor/diagnostics
         services.AddSingleton<IDoctorService, DoctorService>();
 
+        // Upgrade/downgrade
+        services.AddSingleton<IUpgradeDowngradeService, UpgradeDowngradeService>();
+
         // Version resolution strategies (ordine determina priorità di matching)
         services.AddSingleton<IVersionResolutionStrategy, ExactVersionStrategy>();  // 1. Semver esatto
         services.AddSingleton<IVersionResolutionStrategy, AliasStrategy>();          // 2. Alias installato
@@ -103,6 +106,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<AutoDetectCommand>();
         services.AddSingleton<CompletionCommand>();
         services.AddSingleton<DoctorCommand>();
+        services.AddSingleton<UpgradeCommand>();
+        services.AddSingleton<DowngradeCommand>();
         
         return services;
     }
